@@ -1,0 +1,13 @@
+providers:
+    enabled:
+    - hover
+    - signature-help
+diagnostics:
+    enabled:
+    -dialyzer
+    -elvis
+    disabled:
+    - bound_var_in_pattern
+include_dirs:
+    - "_build/default/lib/"
+    - "_build/default/lib/*/include"
