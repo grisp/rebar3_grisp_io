@@ -13,6 +13,7 @@ rebar3 help grisp-io [<task>]
     - [Installation](#installation)
     - [Usage](#usage)
     - [Tasks](#tasks)
+        - [Version](#version)
 
 ## Installation
 
@@ -34,9 +35,23 @@ rebar3 udpdate
 rebar3 plugins upgrade rebar3_grisp_io
 ```
 
+To verify that everything works correctly you can check the version of the plugin by calling:
+
+```shell
+rebar3 grisp-io version
+```
+
 ## Usage
 
 to complete
 
 ## Tasks
 
+### Version
+
+```shell
+rebar3 grisp-io version
+===> Analyzing applications...
+===> Compiling rebar3_grisp_io
+rebar3_grisp_io: 0.1.0
+```
