@@ -50,6 +50,8 @@ read_config(State) ->
     case file:consult(GIoConfigFile) of
         {ok, [Config]} ->
             Config;
+        {error, enoent} ->
+            throw(enoent);
         {error, Reason} ->
             error(Reason)
     end.
