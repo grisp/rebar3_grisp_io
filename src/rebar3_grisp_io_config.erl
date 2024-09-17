@@ -20,11 +20,15 @@
 
 %--- Types ---------------------------------------------------------------------
 
+-type config() :: #{username := binary(),
+                    encrypted_token := binary()}.
+-type clear_token() :: <<_:_*128>>. % AES => data blocks of 16 bytes (128 bits).
 
 %--- API -----------------------------------------------------------------------
 
 %% @doc Write the new configuration stored
 %% Note: The token must be already encrypted in the Config map
+-spec write_config(rebar_state:t(), config()) -> ok.
 write_config(State, Config) ->
     GIoConfigFile = auth_config_file(State),
     ok = filelib:ensure_dir(GIoConfigFile),
@@ -35,7 +39,7 @@ write_config(State, Config) ->
 
 %% @doc Read the stored configuration file
 %% Note: The stored token stays encrypted in the Config map
--spec read_config(rebar_state:t()) -> map() | no_return().
+-spec read_config(rebar_state:t()) -> config() | no_return().
 read_config(State) ->
     GIoConfigFile = auth_config_file(State),
     case file:consult(GIoConfigFile) of
@@ -45,13 +49,19 @@ read_config(State) ->
             error(Reason)
     end.
 
+%% @doc encrypt the token provided in the args
+%% Warning: the token must have a bytes size that is a multiple of 16
+-spec encrypt_token(binary(), clear_token()) -> binary().
 encrypt_token(LocalPassword, Token) ->
     PaddedPassword = password_padding(LocalPassword),
     crypto:crypto_one_time(?AES, PaddedPassword, Token, true).
 
-%% @todo
-decrypt_token(_LocalPassword, _Config) ->
-    ok.
+%% @doc Decrypt the token present in Encrypted token
+-spec decrypt_token(binary(), binary()) -> clear_token().
+decrypt_token(LocalPassword, EncryptedToken) ->
+    PaddedPassword = password_padding(LocalPassword),
+    crypto:crypto_one_time(?AES, PaddedPassword, EncryptedToken, false).
+
 %--- Internals -----------------------------------------------------------------
 auth_config_file(State) ->
     filename:join(rebar_dir:global_config_dir(State), ?CONFIG_FILE).
@@ -61,4 +71,3 @@ password_padding(LocalPassword) when bit_size(LocalPassword) < ?AES_KEY_SIZE ->
     <<LocalPassword/binary, 0:NbPaddingBits>>;
 password_padding(_) ->
     error(local_password_too_big).
-
