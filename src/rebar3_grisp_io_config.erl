@@ -49,12 +49,15 @@ read_config(State) ->
             error(Reason)
     end.
 
--spec encrypt_token(string(), clear_token()) -> binary().
+%% @doc encrypt the token provided in the args
+%% Warning: the token must have a bytes size that is a multiple of 16
+-spec encrypt_token(binary(), clear_token()) -> binary().
 encrypt_token(LocalPassword, Token) ->
     PaddedPassword = password_padding(LocalPassword),
     crypto:crypto_one_time(?AES, PaddedPassword, Token, true).
 
--spec decrypt_token(string(), binary()) -> clear_token().
+%% @doc Decrypt the token present in Encrypted token
+-spec decrypt_token(binary(), binary()) -> clear_token().
 decrypt_token(LocalPassword, EncryptedToken) ->
     PaddedPassword = password_padding(LocalPassword),
     crypto:crypto_one_time(?AES, PaddedPassword, EncryptedToken, false).
