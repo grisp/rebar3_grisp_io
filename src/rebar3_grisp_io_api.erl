@@ -12,7 +12,7 @@
       RState   :: rebar_state:t(),
       Username :: binary(),
       Password :: binary(),
-      Result   :: Token :: binary() | no_return().
+      Result   :: Token :: binary() | no_return().
 auth(RState, Username, Password) ->
     {ok, Hostname} = inet:gethostname(),
     BaseUrl = base_url(RState),
