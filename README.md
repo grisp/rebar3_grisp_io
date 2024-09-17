@@ -13,6 +13,7 @@ rebar3 help grisp-io [<task>]
     - [Installation](#installation)
     - [Usage](#usage)
     - [Tasks](#tasks)
+        - [Authentication](#authentication)
         - [Version](#version)
 
 ## Installation
@@ -46,6 +47,25 @@ rebar3 grisp-io version
 to complete
 
 ## Tasks
+
+### Authentication
+
+This command allows you to authenticate on `grisp.io` and receive an API token.
+
+The API token is encrypted and saved locally on your computer using the provided local password.
+
+```shell
+rebar3 grisp-io auth
+===> Analyzing applications...
+===> Compiling rebar3_grisp_io
+
+Username > <Username>
+Password > <Password>
+Authentication successful - Please provide new local password
+Local password > <LocalPassword>
+Confirm your local password > <LocalPassword> % Must be the same
+Token successfully requested
+```
 
 ### Version
 
