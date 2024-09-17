@@ -10,5 +10,6 @@ init(State) ->
     [{ok, _} = application:ensure_all_started(A) || A <- Deps],
     % Register tasks
     lists:foldl(fun(Mod, {ok, S}) -> Mod:init(S) end, {ok, State}, [
+        rebar3_grisp_io_auth,
         rebar3_grisp_io_version
     ]).
