@@ -51,7 +51,7 @@ success(Msg, Args) ->
 
 -spec do_ask(Prompt, Type) -> UserInput | no_return() when
       Type      :: input_type(),
-      Prompt    :: binary(),
+      Prompt    :: string(),
       UserInput :: unicode:chardata().
 do_ask(Prompt, password) ->
     NewPrompt = erlang:iolist_to_binary([Prompt, " > "]),
