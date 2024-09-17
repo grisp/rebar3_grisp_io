@@ -15,15 +15,18 @@
 %--- Macros --------------------------------------------------------------------
 
 -define(CONFIG_FILE, "grisp-io.config").
--define(AES, aes_256_ecb).
+-define(AES, aes_256_gcm).
 -define(AES_KEY_SIZE, 256).
+-define(AAD, <<"LetItCrash">>).
 
 %--- Types ---------------------------------------------------------------------
 
 -type config() :: #{username := binary(),
-                    encrypted_token := binary()}.
+                    encrypted_token := encrypted_token()}.
 -type clear_token() :: <<_:_*128>>. % AES => data blocks of 16 bytes (128 bits).
-
+-type encrypted_token() :: #{iv => binary(),
+                             tag => binary(),
+                             encrypted_token => binary()}.
 %--- API -----------------------------------------------------------------------
 
 %% @doc Write the new configuration stored
@@ -51,16 +54,21 @@ read_config(State) ->
 
 %% @doc encrypt the token provided in the args
 %% Warning: the token must have a bytes size that is a multiple of 16
--spec encrypt_token(binary(), clear_token()) -> binary().
+-spec encrypt_token(binary(), clear_token()) -> encrypted_token().
 encrypt_token(LocalPassword, Token) ->
-    PaddedPassword = password_padding(LocalPassword),
-    crypto:crypto_one_time(?AES, PaddedPassword, Token, true).
+    PaddedPswd = password_padding(LocalPassword),
+    IV = crypto:strong_rand_bytes(16),
+    {EncrToken, Tag} = crypto:crypto_one_time_aead(?AES, PaddedPswd, IV,
+                                                   Token, ?AAD, true),
+    #{iv => IV, tag => Tag, encrypted_token => EncrToken}.
 
 %% @doc Decrypt the token present in Encrypted token
--spec decrypt_token(binary(), binary()) -> clear_token().
-decrypt_token(LocalPassword, EncryptedToken) ->
-    PaddedPassword = password_padding(LocalPassword),
-    crypto:crypto_one_time(?AES, PaddedPassword, EncryptedToken, false).
+-spec decrypt_token(binary(), encrypted_token()) -> clear_token() | error.
+decrypt_token(LocalPassword, TokenMap) ->
+    PaddedPswd = password_padding(LocalPassword),
+    #{iv := IV, tag := Tag, encrypted_token := EncrToken} = TokenMap,
+    crypto:crypto_one_time_aead(?AES, PaddedPswd, IV,
+                                EncrToken, ?AAD, Tag, false).
 
 %--- Internals -----------------------------------------------------------------
 auth_config_file(State) ->

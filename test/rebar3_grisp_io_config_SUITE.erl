@@ -55,7 +55,9 @@ read_write_config_test(Config) ->
 encrypt_decrypt_token(Config) ->
     Token = ?config(token, Config),
     Password = ?config(local_password, Config),
+    BadPassword = <<"aaaaaaaaaaaaaaaa">>,
     EncryptedToken = rebar3_grisp_io_config:encrypt_token(Password, Token),
     ?assertNotEqual(<<>>, EncryptedToken),
     ?assertNotEqual(Token, EncryptedToken),
-    ?assertEqual(Token, rebar3_grisp_io_config:decrypt_token(Password, EncryptedToken)).
+    ?assertEqual(Token, rebar3_grisp_io_config:decrypt_token(Password, EncryptedToken)),
+    ?assertEqual(error, rebar3_grisp_io_config:decrypt_token(BadPassword, EncryptedToken)).
