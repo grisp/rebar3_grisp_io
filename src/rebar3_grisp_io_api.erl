@@ -2,6 +2,7 @@
 
 % API
 -export([auth/3]).
+-export([update_package/4]).
 
 %--- Macros --------------------------------------------------------------------
 
@@ -36,12 +37,42 @@ auth(RState, Username, Password) ->
             error({error, Other})
     end.
 
+%% @todo specs
+update_package(RState, Token, PackageName, PackageBin) ->
+    BaseUrl = base_url(RState),
+    URI = list_to_binary("/grisp-manager/api/update-package/" ++ PackageName),
+    Url = <<BaseUrl/binary, URI/binary>>,
+    BinSize = byte_size(PackageBin),
+    Headers = [{<<"authorization">>, bearer_token(Token)},
+               {<<"content-type">>, <<"application/octet-stream">>},
+               {<<"content-length">>, integer_to_binary(BinSize)}],
+    Options = insecure_option(RState),
+
+    case hackney:request(put, Url, Headers, PackageBin, Options) of
+        {ok, 204, _, _} ->
+            ok;
+        {ok, 400, _, ClientRef} ->
+            {ok, _RespBody} = hackney:body(ClientRef),
+            error(unknown_request);
+        {ok, 401, _, _} ->
+            throw(wrong_credentials);
+        {ok, 403, _, _} ->
+            throw(package_limit_reached);
+        {ok, 413, _, _} ->
+            throw(package_too_big);
+        Other ->
+            error({error, Other})
+    end.
+
 %--- Internal ------------------------------------------------------------------
 %% @private
 %% @doc Create the Authorisation header <<"Basic Username:Password">>
 basic_auth(Username, Password) ->
     AuthContent = base64:encode(<<Username/binary, ":", Password/binary>>),
     <<"Basic ", AuthContent/binary>>.
+
+bearer_token(Token) ->
+    <<"Bearer ", Token/binary>>.
 
 %% @doc fetch the base_url from the options (default points to prod)
 base_url(RState) ->
@@ -51,7 +82,7 @@ base_url(RState) ->
 %% @doc adds the insecure options in the current profile is test (only for dev)
 insecure_option(RState) ->
     case rebar_state:current_profiles(RState) of
-        [default, test] ->
+        [default, test | _] ->
             [insecure];
         _ ->
             []
