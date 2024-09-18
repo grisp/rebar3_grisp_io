@@ -21,12 +21,14 @@
 
 %--- Types ---------------------------------------------------------------------
 
--type config() :: #{username := binary(),
-                    encrypted_token := encrypted_token()}.
--type clear_token() :: <<_:_*128>>. % AES => data blocks of 16 bytes (128 bits).
 -type encrypted_token() :: #{iv => binary(),
                              tag => binary(),
                              encrypted_token => binary()}.
+
+-type config() :: #{username := binary(),
+                    encrypted_token := encrypted_token()}.
+
+-type clear_token() :: <<_:_*128>>. % AES => data blocks of 16 bytes (128 bits).
 %--- API -----------------------------------------------------------------------
 
 %% @doc Write the new configuration stored
