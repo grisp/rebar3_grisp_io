@@ -2,7 +2,7 @@
 
 % API
 -export([auth/3]).
--export([update_package/4]).
+-export([update_package/5]).
 
 %--- Macros --------------------------------------------------------------------
 
@@ -38,14 +38,15 @@ auth(RState, Username, Password) ->
     end.
 
 %% @todo specs
-update_package(RState, Token, PackageName, PackageBin) ->
+update_package(RState, Token, PackageName, PackageBin, Force) ->
     BaseUrl = base_url(RState),
     URI = list_to_binary("/grisp-manager/api/update-package/" ++ PackageName),
     Url = <<BaseUrl/binary, URI/binary>>,
     BinSize = byte_size(PackageBin),
     Headers = [{<<"authorization">>, bearer_token(Token)},
                {<<"content-type">>, <<"application/octet-stream">>},
-               {<<"content-length">>, integer_to_binary(BinSize)}],
+               {<<"content-length">>, integer_to_binary(BinSize)}]
+               ++ if_none_match(Force, "\"" ++ PackageName ++ "\""),
     Options = insecure_option(RState),
 
     case hackney:request(put, Url, Headers, PackageBin, Options) of
@@ -58,6 +59,8 @@ update_package(RState, Token, PackageName, PackageBin) ->
             throw(wrong_credentials);
         {ok, 403, _, _} ->
             throw(package_limit_reached);
+        {ok, 412, _, _} ->
+            throw(package_already_exists);
         {ok, 413, _, _} ->
             throw(package_too_big);
         Other ->
@@ -87,3 +90,9 @@ insecure_option(RState) ->
         _ ->
             []
     end.
+
+if_none_match(true, _) ->
+    [];
+if_none_match(false, Etag) ->
+    [{<<"if-none-match">>, list_to_binary(Etag)}].
+

@@ -27,7 +27,7 @@ init(State) ->
         {module, ?MODULE},
         {bare, true},
         {example, "rebar3 grisp_io upload"},
-        {opts, []}, % TODO add force flag (both for overwriting pckg and upload)
+        {opts, options()},
         {profile, [default]},
         {short_desc, "Upload an update to GRiSP.io"},
         {desc, "Upload an update for the current package on GRiSP.io"}
@@ -39,14 +39,22 @@ init(State) ->
 do(RState) ->
     {ok, _} = application:ensure_all_started(rebar3_grisp_io),
     try
+        {Args, _} = rebar_state:command_parsed_args(RState),
+        Force = proplists:get_value(force, Args),
+        Pack = proplists:get_value(pack, Args),
+
         Config = rebar3_grisp_io_config:read_config(RState),
         EncryptedToken = maps:get(encrypted_token, Config),
         Password = ask("Local password", password),
         Token = try_decrypt_token(Password, EncryptedToken),
 
-        RState1 = try_pack_command(RState),
+        RState1 = case Pack of
+                      true ->
+                          try_pack_command(RState, Force);
+                      false ->
+                          RState
+                  end,
 
-        % TODO fetch content of package + name
         ProjectDir = rebar_state:dir(RState),
         PackageName = rebar3_grisp_io_utils:expected_package_name(RState),
         {ok, PackageBin} = try_get_package_bin(ProjectDir, PackageName),
@@ -54,26 +62,31 @@ do(RState) ->
         rebar3_grisp_io_api:update_package(RState1,
                                            Token,
                                            PackageName,
-                                           PackageBin),
+                                           PackageBin,
+                                           Force),
 
-        success("Package " ++ PackageName ++ " succesfully uploaded to grisp.io"),
+        success("Package " ++ PackageName ++
+                " succesfully uploaded to grisp.io"),
 
         {ok, RState1}
     catch
         throw:enoent ->
             abort("No configuration available." ++
                   "First run 'rebar3 grisp-io auth' to authenticate");
+        throw:wrong_local_password ->
+            abort("Wrong local password. Try again");
         throw:wrong_credentials ->
             abort("Error: Wrong credentials");
         throw:package_limit_reached ->
-            abort("Error: The limit number of uploaded package " ++ 
+            abort("Error: The limit number of uploaded package " ++
                   "has been reached for this account");
-        throw:wrong_local_password ->
-            abort("Wrong local password. Try again");
+        throw:package_already_exists ->
+            abort("Error: A package has already been uploaded for " ++
+                  "the same release. Use -f or --force to force the upload");
         throw:package_too_big ->
             abort("Package size is too big");
-        error:E:S ->
-            abort("Unexpected error: ~p -> ~p ~n", [E, S])
+        error:E ->
+            abort("Unexpected error: ~p ~n", [E])
     end.
 
 -spec format_error(any()) ->  iolist().
@@ -81,6 +94,14 @@ format_error(Reason) ->
     io_lib:format("~p", [Reason]).
 
 %--- Internals -----------------------------------------------------------------
+options() -> [
+    {force, $f, "force", {boolean, false},
+     "Force overwriting of the files both locally and remotely"},
+    {pack, $p, "pack", {boolean, false},
+     "Run the command rebar3 grisp pack on " ++
+     "the current project before uploading"}
+].
+
 try_decrypt_token(Password, EncryptedToken) ->
     case rebar3_grisp_io_config:decrypt_token(Password, EncryptedToken) of
         error ->
@@ -89,8 +110,14 @@ try_decrypt_token(Password, EncryptedToken) ->
             T
     end.
 
-try_pack_command(RState) ->
-    case rebar3_grisp_io_utils:grisp_pack(RState, []) of
+try_pack_command(RState, Force) ->
+    Args = case Force of
+               true ->
+                   ["--force"];
+               false ->
+                   []
+           end,
+    case rebar3_grisp_io_utils:grisp_pack(RState, Args) of
         {error, Reason} ->
             error(Reason);
         {ok, NewRState} ->
