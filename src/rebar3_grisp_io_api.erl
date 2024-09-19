@@ -37,7 +37,19 @@ auth(RState, Username, Password) ->
             error({error, Other})
     end.
 
-%% @todo specs
+%% @doc Performs a PUT request tp /grisp-manager/api/update-package/PackageName
+%% @param Token is the clear token of the user
+%% @param PackageName must have the following format "platform.appname.x.y.z.tar
+%% @param PackageBin is the content of the package
+%% @param Force indicates if the PUT request should overwrite
+%%        the remote files if they exist
+-spec update_package(RState, Token, PackageName, PackageBin, Force) -> Res when
+      RState      :: rebar_state:t(),
+      Token       :: rebar3_grisp_io_config:clear_token(),
+      PackageName :: string(),
+      PackageBin  :: binary(),
+      Force       :: boolean(),
+      Res         :: ok | no_return().
 update_package(RState, Token, PackageName, PackageBin, Force) ->
     BaseUrl = base_url(RState),
     URI = list_to_binary("/grisp-manager/api/update-package/" ++ PackageName),
@@ -91,6 +103,12 @@ insecure_option(RState) ->
             []
     end.
 
+%% @doc Build the header "if-none-match" if force is false
+%% The Etag format must be: <<"\"...\"">>
+-spec if_none_match(Force, Etag) -> Result when
+      Force  :: boolean(),
+      Etag   :: string(),
+      Result :: [{binary(), binary()}].
 if_none_match(true, _) ->
     [];
 if_none_match(false, Etag) ->

@@ -41,17 +41,17 @@ do(RState) ->
     try
         {Args, _} = rebar_state:command_parsed_args(RState),
         Force = proplists:get_value(force, Args),
-        Pack = proplists:get_value(pack, Args),
+        NoPack = proplists:get_value(no_pack, Args),
 
         Config = rebar3_grisp_io_config:read_config(RState),
         EncryptedToken = maps:get(encrypted_token, Config),
         Password = ask("Local password", password),
         Token = try_decrypt_token(Password, EncryptedToken),
 
-        RState1 = case Pack of
-                      true ->
-                          try_pack_command(RState, Force);
+        RState1 = case NoPack of
                       false ->
+                          try_pack_command(RState, Force);
+                      true ->
                           RState
                   end,
 
@@ -97,11 +97,15 @@ format_error(Reason) ->
 options() -> [
     {force, $f, "force", {boolean, false},
      "Force overwriting of the files both locally and remotely"},
-    {pack, $p, "pack", {boolean, false},
-     "Run the command rebar3 grisp pack on " ++
+    {no_pack, $n, "no-pack", {boolean, false},
+     "Do not run the pack command on " ++
      "the current project before uploading"}
 ].
 
+-spec try_decrypt_token(Password, EncryptedToken) -> Result | no_return() when
+    Password :: binary(),
+    EncryptedToken :: rebar3_grisp_io_config:encrypted_token(),
+    Result         :: rebar3_grisp_io_config:clear_token().
 try_decrypt_token(Password, EncryptedToken) ->
     case rebar3_grisp_io_config:decrypt_token(Password, EncryptedToken) of
         error ->
@@ -110,6 +114,7 @@ try_decrypt_token(Password, EncryptedToken) ->
             T
     end.
 
+-spec try_pack_command(rebar_state:t(), boolean()) -> rebar_state:t().
 try_pack_command(RState, Force) ->
     Args = case Force of
                true ->
@@ -124,6 +129,10 @@ try_pack_command(RState, Force) ->
             NewRState
     end.
 
+-spec try_get_package_bin(ProjectDir, PackageName) -> Result when
+      ProjectDir  :: string(),
+      PackageName :: string(),
+      Result      :: {ok, binary()} | {error, term()}.
 try_get_package_bin(ProjectDir, PackageName) ->
     Path = filename:join([ProjectDir, "_grisp/update/", PackageName]),
     case filelib:is_file(Path) of
