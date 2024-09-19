@@ -14,6 +14,7 @@ rebar3 help grisp-io [<task>]
     - [Usage](#usage)
     - [Tasks](#tasks)
         - [Authentication](#authentication)
+        - [Upload](#upload)
         - [Version](#version)
 
 ## Installation
@@ -66,6 +67,21 @@ Local password > <LocalPassword>
 Confirm your local password > <LocalPassword> % Must be the same
 Token successfully requested
 ```
+
+### Upload
+
+> [!TIP]
+> You need to authenticate first and request a token using [authenticate](#authenticate)
+
+This command allows you to upload a package on `grisp.io`. Internally, this command will call `rebar3 grisp pack` and create
+a new release package. Release packages are identified by 3 elements:
+- The platform name (by default `grisp2`)
+- The application name
+- The release version in SemVer fashion (by default `0.1.0`)
+
+This command has 2 options:
+- `--force` or `-f`: This option will force an overwritting of the local and remote files of a given project and release
+- `--no-pack` or `-p`: With this option enabled, the command won't run internally the command `rebar3 grisp pack`
 
 ### Version
 
