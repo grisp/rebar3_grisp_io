@@ -30,7 +30,7 @@
 
 -type clear_token() :: <<_:_*128>>. % AES => data blocks of 16 bytes (128 bits).
 
--export_type([encrypted_token/0]).
+-export_type([encrypted_token/0, clear_token/0]).
 %--- API -----------------------------------------------------------------------
 
 %% @doc Write the new configuration stored
