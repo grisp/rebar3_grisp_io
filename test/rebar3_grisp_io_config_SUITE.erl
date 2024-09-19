@@ -24,10 +24,7 @@ all() -> [
 ].
 
 init_per_suite(Config) ->
-    DataDir = ?config(data_dir, Config),
-    os:putenv("REBAR_GLOBAL_CONFIG_DIR", DataDir),
-    RState = rebar_state:new(),
-    [{rebar_state, RState} | Config].
+    rebar3_grisp_io_common_test:init_per_suite(Config).
 
 end_per_suite(_Config) ->
     ok.
