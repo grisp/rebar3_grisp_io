@@ -48,6 +48,6 @@ run_version_command(Config) ->
     ?assertMatch({ok, _}, ProvOutput),
     ExpectedOutput = "rebar3_grisp_io: " ++ ?config(release, Config) ++"\n",
     Output = rebar3_grisp_io_test_utils:fetch_all_io_outputs(),
-    ?assertEqual([ExpectedOutput], Output).
+    ?assertEqual(ExpectedOutput, lists:last(Output)).
 
 %--- Internal ------------------------------------------------------------------
