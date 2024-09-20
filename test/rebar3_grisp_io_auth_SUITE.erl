@@ -27,7 +27,8 @@ all() -> [
 ].
 
 init_per_suite(Config) ->
-    rebar3_grisp_io_common_test:init_per_suite(Config).
+    Config1 = rebar3_grisp_io_common_test:init_per_suite(Config),
+    rebar3_grisp_io_common_test:init_backend(Config1).
 
 end_per_suite(Config) ->
     rebar3_grisp_io_common_test:end_per_suite(Config).
@@ -41,19 +42,31 @@ init_per_testcase(_, Config) ->
     Config.
 
 end_per_testcase(_, _Config) ->
-    ok.
+    meck:unload().
 
 %--- Testcases -----------------------------------------------------------------
 
-run_auth(_Config) ->
-    ProvOutput = rebar3_grisp_io_test_utils:run_grisp_io_command(?PROV, []),
-    ?assertMatch({ok, _}, ProvOutput).
+run_auth(Config) ->
+    RState = ?config(rebar_state, Config),
+    ProviderOutput = rebar3_grisp_io_test_utils:run_grisp_io_command(RState,
+                                                                     ?PROV,
+                                                                     []),
+    ?assertMatch({ok, _}, ProviderOutput),
+    {ok, RState2} = ProviderOutput,
+    GIOConfig = rebar3_grisp_io_config:read_config(RState2),
+    ?assertMatch(#{username := <<"Testuser">>,
+                   encrypted_token := _}, GIOConfig),
+    #{encrypted_token := EncryptedToken} = GIOConfig,
+    ?assertEqual(error,
+        rebar3_grisp_io_config:decrypt_token(<<"1234">>, EncryptedToken)),
+    ?assertMatch(<<_/binary>>,
+        rebar3_grisp_io_config:decrypt_token(<<"azerty">>, EncryptedToken)).
 
 %--- Internal ------------------------------------------------------------------
 fake_ask("Username", _) ->
-    <<"Jaqen">>;
+    <<"Testuser">>;
 fake_ask("Password", _) ->
-    <<"123456789">>;
+    <<"1234">>;
 fake_ask(Prompt, _) when
       Prompt =:= "Local password" orelse
       Prompt =:= "Confirm your local password" ->
