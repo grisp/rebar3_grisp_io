@@ -14,6 +14,7 @@
 start(Config) ->
     PrivDir = ?config(priv_dir, Config),
     application:set_env(mnesia, dir, PrivDir),
+    setup_policies(PrivDir),
 
     eresu:install([node()]),
     {ok, Started1} = application:ensure_all_started(eresu),
@@ -31,6 +32,16 @@ start(Config) ->
 
 kraft_start(CertDir) ->
     kraft_start(CertDir, #{}).
+
+
+cleanup_apps(Apps) ->
+    mnesia:delete_table(eresu_user),
+    mnesia:delete_table(eresu_token),
+    mnesia:delete_table(update_package),
+    [application:stop(App) || App <- Apps],
+    application:stop(mnesia).
+
+%--- Internal ------------------------------------------------------------------
 
 kraft_start(CertDir, OverrideOpts) ->
     SslOpts = [
@@ -51,13 +62,6 @@ kraft_start(CertDir, OverrideOpts) ->
     ],
     kraft:start(KraftOpts, KraftRoutes).
 
-cleanup_apps(Apps) ->
-    mnesia:delete_table(eresu_user),
-    mnesia:delete_table(eresu_token),
-    mnesia:delete_table(update_package),
-    [application:stop(App) || App <- Apps],
-    application:stop(mnesia).
-
 register_user() ->
     Hash = erlpass:hash(<<"1234">>),
     WriteUser = fun() ->
@@ -75,3 +79,15 @@ register_user() ->
                                       []})
                 end,
     mnesia:activity(transaction, WriteUser).
+
+setup_policies(PrivDir) ->
+    Policies = [#{subject => #{uuid => <<"Uuid">>},
+                  object => #{application => grisp_manager},
+                  operations => '_'},
+                #{subject => #{uuid => '$1'},
+                  object => #{type => grisp_device, user_id => '$1'},
+                  operations => '_'}],
+    PoliciesString = list_to_binary(io_lib:format("~p.", [Policies])),
+    PolicyFile = filename:join(PrivDir, "policies.term"),
+    ok = file:write_file(PolicyFile, PoliciesString),
+    application:set_env(seabac, policy_file, PolicyFile).

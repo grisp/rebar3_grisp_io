@@ -16,8 +16,10 @@ init_per_suite(Config) ->
     DataDir = ?config(data_dir, Config),
     os:putenv("REBAR_GLOBAL_CONFIG_DIR", DataDir),
     RState = rebar_state:current_profiles(rebar_state:new(), [default, test]),
-    [{rebar_state, RState} | Config].
-
+    RState1 = rebar_state:set(RState, relx, [{release, 
+                                              {grisp_io_robot, "0.1.0"}, 
+                                              [grisp_io_robot]}]),
+    [{rebar_state, RState1} | Config].
 
 init_backend(Config) ->
     PrivDir = ?config(priv_dir, Config),
