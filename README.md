@@ -14,6 +14,7 @@ rebar3 help grisp-io [<task>]
     - [Usage](#usage)
     - [Tasks](#tasks)
         - [Authentication](#authentication)
+        - [Deploy](#deploy)
         - [Upload](#upload)
         - [Version](#version)
 
@@ -67,7 +68,7 @@ Local password > <LocalPassword>
 Confirm your local password > <LocalPassword> % Must be the same
 Token successfully requested
 ```
-
+---
 ### Deploy
 
 > [!IMPORTANT]
@@ -82,8 +83,7 @@ This command has 2 options (mandatory options are marked with :exclamation:
 
 > [!NOTE]
 > :pushpin: If no package name is specified, it will use the informations contained in your `rebar.config` to deduce the package name
-
-
+---
 ### Upload
 
 > [!IMPORTANT]
@@ -98,7 +98,7 @@ a new release package. Release packages are identified by 3 elements:
 This command has 2 options:
 - `--force` or `-f`: This option will force an overwritting of the local and remote files of a given project and release
 - `--no-pack` or `-p`: With this option enabled, the command won't run internally the command `rebar3 grisp pack`
-
+---
 ### Version
 
 ```shell
