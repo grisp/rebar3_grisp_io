@@ -57,10 +57,10 @@ run_auth(Config) ->
     ?assertMatch(#{username := <<"Testuser">>,
                    encrypted_token := _}, GIOConfig),
     #{encrypted_token := EncryptedToken} = GIOConfig,
-    ?assertEqual(error,
-        rebar3_grisp_io_config:decrypt_token(<<"1234">>, EncryptedToken)),
+    ?assertThrow(wrong_local_password,
+        rebar3_grisp_io_config:try_decrypt_token(<<"1234">>, EncryptedToken)),
     ?assertMatch(<<_/binary>>,
-        rebar3_grisp_io_config:decrypt_token(<<"azerty">>, EncryptedToken)).
+        rebar3_grisp_io_config:try_decrypt_token(<<"azerty">>, EncryptedToken)).
 
 %--- Internal ------------------------------------------------------------------
 fake_ask("Username", _) ->

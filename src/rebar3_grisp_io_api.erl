@@ -3,6 +3,7 @@
 % API
 -export([auth/3]).
 -export([update_package/5]).
+-export([deploy_update/4]).
 
 %--- Macros --------------------------------------------------------------------
 
@@ -75,6 +76,40 @@ update_package(RState, Token, PackageName, PackageBin, Force) ->
             throw(package_already_exists);
         {ok, 413, _, _} ->
             throw(package_too_big);
+        Other ->
+            error({error, Other})
+    end.
+
+%% @doc Performs a PUT request tp /grisp-manager/api/update-package/PackageName
+%% @param Token is the clear token of the user
+%% @param PackageName must have the following format "platform.appname.x.y.z.tar
+%% @param Device is the serial number of the targeted device
+-spec deploy_update(RState, Token, PackageName, Device) -> Res when
+      RState      :: rebar_state:t(),
+      Token       :: rebar3_grisp_io_config:clear_token(),
+      PackageName :: string(),
+      Device      :: binary(),
+      Res         :: ok | no_return().
+deploy_update(RState, Token, PackageName, Device) ->
+    BaseUrl = base_url(RState),
+    URI = list_to_binary("/grisp-manager/api/deploy-update/" ++ PackageName),
+    QS = <<"device=", (integer_to_binary(Device))/binary>>,
+    Url = hackney_url:make_url(BaseUrl, URI, QS),
+    Headers = [{<<"authorization">>, bearer_token(Token)},
+               {<<"content-type">>, <<"application/json">>},
+               {<<"content-length">>, integer_to_binary(0)}],
+    Options = insecure_option(RState),
+
+    case hackney:request(post, Url, Headers, <<>>, Options) of
+        {ok, 204, _, _} ->
+            ok;
+        {ok, 400, _, ClientRef} ->
+            {ok, _RespBody} = hackney:body(ClientRef),
+            error(unknown_request);
+        {ok, 401, _, _} ->
+            throw(wrong_credentials);
+        {ok, 404, _, _} ->
+            throw(package_does_not_exist);
         Other ->
             error({error, Other})
     end.
