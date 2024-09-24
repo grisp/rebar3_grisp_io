@@ -8,7 +8,6 @@
 %--- Includes ------------------------------------------------------------------
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("stdlib/include/assert.hrl").
 
 %--- API -----------------------------------------------------------------------
 
@@ -22,17 +21,12 @@ init_per_suite(Config) ->
     [{rebar_state, RState1} | Config].
 
 init_backend(Config) ->
-    PrivDir = ?config(priv_dir, Config),
     CertDir = filename:join(code:lib_dir(rebar3_grisp_io, test), "certs"),
 
 
     RState = ?config(rebar_state, Config),
     RState2 = rebar_state:set(RState, rebar3_grisp_io,
                               [{base_url, <<"https://localhost:8443">>}]),
-
-    PolicyFile = filename:join(PrivDir, "policies.term"),
-    ?assertEqual(ok, file:write_file(PolicyFile, <<>>)),
-    application:set_env(seabac, policy_file, PolicyFile),
 
     Config2 = rebar3_grisp_io_manager:start(Config),
     rebar3_grisp_io_manager:kraft_start(CertDir),
