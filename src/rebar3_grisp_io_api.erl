@@ -88,11 +88,11 @@ update_package(RState, Token, PackageName, PackageBin, Force) ->
       RState      :: rebar_state:t(),
       Token       :: rebar3_grisp_io_config:clear_token(),
       PackageName :: string(),
-      Device      :: binary(),
+      Device      :: integer(),
       Res         :: ok | no_return().
 deploy_update(RState, Token, PackageName, Device) ->
     BaseUrl = base_url(RState),
-    URI = list_to_binary("/grisp-manager/api/deploy-update/" ++ PackageName),
+    URI = list_to_binary( "/grisp-manager/api/deploy-update/" ++ PackageName),
     QS = <<"device=", (integer_to_binary(Device))/binary>>,
     Url = hackney_url:make_url(BaseUrl, URI, QS),
     Headers = [{<<"authorization">>, bearer_token(Token)},
