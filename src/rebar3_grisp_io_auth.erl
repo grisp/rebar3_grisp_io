@@ -63,8 +63,13 @@ do(RState) ->
                   " Revoke unused tokens and try again");
         throw:not_matching ->
             abort("Error: The 2 local password entries don't match");
-        error:E ->
-            abort("Unexpected error: ~p~n", [E])
+        error:E:S ->
+            case lists:member(test, rebar_state:current_profiles(RState)) of
+                true ->
+                    abort("Unexpected error: ~p -> ~p ~n", [E, S]);
+                false ->
+                    abort("Unexpected error: ~p ~n", [E])
+            end
     end.
 
 -spec format_error(any()) ->  iolist().

@@ -85,8 +85,13 @@ do(RState) ->
                   "the same release. Use -f or --force to force the upload");
         throw:package_too_big ->
             abort("Package size is too big");
-        error:E ->
-            abort("Unexpected error: ~p ~n", [E])
+        error:E:S ->
+            case lists:member(test, rebar_state:current_profiles(RState)) of
+                true ->
+                    abort("Unexpected error: ~p -> ~p ~n", [E, S]);
+                false ->
+                    abort("Unexpected error: ~p ~n", [E])
+            end
     end.
 
 -spec format_error(any()) ->  iolist().
