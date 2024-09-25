@@ -13,5 +13,6 @@ init(State) ->
         rebar3_grisp_io_auth,
         rebar3_grisp_io_deploy,
         rebar3_grisp_io_upload,
+        rebar3_grisp_io_validate,
         rebar3_grisp_io_version
     ]).

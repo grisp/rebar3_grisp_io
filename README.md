@@ -16,6 +16,7 @@ rebar3 help grisp-io [<task>]
         - [Authentication](#authentication)
         - [Deploy](#deploy)
         - [Upload](#upload)
+        - [Validate](#validate)
         - [Version](#version)
 
 ## Installation
@@ -98,6 +99,16 @@ a new release package. Release packages are identified by 3 elements:
 This command has 2 options:
 - `--force` or `-f`: This option will force an overwritting of the local and remote files of a given project and release
 - `--no-pack` or `-p`: With this option enabled, the command won't run internally the command `rebar3 grisp pack`
+---
+### Validate
+
+> [!IMPORTANT]
+> You need to authenticate first and request a token using [authenticate](#authenticate)
+
+This command allows you to validate an update that has been deployed on a device
+
+This command has 1 option and is mandatory:
+- `--device` or `-d`: This option specifies the serial number of the target device
 ---
 ### Version
 
