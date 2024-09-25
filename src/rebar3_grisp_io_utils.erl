@@ -20,6 +20,7 @@ grisp_pack(RState, Args) ->
             {ok, RS1}
     end.
 
+-spec expected_package_name(rebar_state:t()) -> list().
 expected_package_name(RState) ->
     {AppName, Version} = release(RState),
     Platform = platform(RState),

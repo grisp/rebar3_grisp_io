@@ -56,6 +56,8 @@ start(Config) ->
     {ok, Started2} = application:ensure_all_started(kraft),
 
     {ok, Started3} = application:ensure_all_started(grisp_manager),
+    ok = mnesia:wait_for_tables([grisp_device], 500),
+    link_board(),
     Apps = Started1 ++ Started2 ++ Started3,
     [{apps, Apps} | Config].
 
@@ -85,6 +87,7 @@ cleanup_apps(Apps) ->
     mnesia:delete_table(eresu_user),
     mnesia:delete_table(eresu_token),
     mnesia:delete_table(update_package),
+    mnesia:delete_table(grisp_device),
     [application:stop(App) || App <- Apps],
     application:stop(mnesia).
 
@@ -105,6 +108,16 @@ register_user() ->
                                       []})
                 end,
     mnesia:activity(transaction, WriteUser).
+
+link_board() ->
+    AddBoard = fun() ->
+                       mnesia:write({grisp_device,
+                                     <<"1337">>,
+                                     <<"Uuid">>,
+                                     null,
+                                     null})
+               end,
+    mnesia:activity(transaction, AddBoard).
 
 setup_policies(PrivDir) ->
     Policies = [#{subject => #{uuid => <<"Uuid">>},

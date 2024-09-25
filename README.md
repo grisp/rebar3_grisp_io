@@ -14,6 +14,7 @@ rebar3 help grisp-io [<task>]
     - [Usage](#usage)
     - [Tasks](#tasks)
         - [Authentication](#authentication)
+        - [Deploy](#deploy)
         - [Upload](#upload)
         - [Version](#version)
 
@@ -67,10 +68,25 @@ Local password > <LocalPassword>
 Confirm your local password > <LocalPassword> % Must be the same
 Token successfully requested
 ```
+---
+### Deploy
 
+> [!IMPORTANT]
+> You need an authentication token to run this command see: [authenticate](#authenticate)
+> You need an uploaded package on `grisp.io` as well see: [upload](#upload)
+
+This command allows you to update a grisp board using a package uploaded previously on `grisp.io`
+
+This command has 2 options (mandatory options are marked with :exclamation:
+- `--device` or `-d`: This option specifies the serial number of the target device :exclamation:
+- `--package` or `-p`: This option specifies the full package name that needs to be deployed
+
+> [!NOTE]
+> :pushpin: If no package name is specified, it will use the informations contained in your `rebar.config` to deduce the package name
+---
 ### Upload
 
-> [!TIP]
+> [!IMPORTANT]
 > You need to authenticate first and request a token using [authenticate](#authenticate)
 
 This command allows you to upload a package on `grisp.io`. Internally, this command will call `rebar3 grisp pack` and create
@@ -82,7 +98,7 @@ a new release package. Release packages are identified by 3 elements:
 This command has 2 options:
 - `--force` or `-f`: This option will force an overwritting of the local and remote files of a given project and release
 - `--no-pack` or `-p`: With this option enabled, the command won't run internally the command `rebar3 grisp pack`
-
+---
 ### Version
 
 ```shell

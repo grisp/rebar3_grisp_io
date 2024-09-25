@@ -46,7 +46,8 @@ do(RState) ->
         Config = rebar3_grisp_io_config:read_config(RState),
         EncryptedToken = maps:get(encrypted_token, Config),
         Password = ask("Local password", password),
-        Token = try_decrypt_token(Password, EncryptedToken),
+        Token = rebar3_grisp_io_config:try_decrypt_token(Password,
+                                                        EncryptedToken),
 
         RState1 = case NoPack of
                       false ->
@@ -106,18 +107,6 @@ options() -> [
      "Do not run the pack command on " ++
      "the current project before uploading"}
 ].
-
--spec try_decrypt_token(Password, EncryptedToken) -> Result | no_return() when
-    Password :: binary(),
-    EncryptedToken :: rebar3_grisp_io_config:encrypted_token(),
-    Result         :: rebar3_grisp_io_config:clear_token().
-try_decrypt_token(Password, EncryptedToken) ->
-    case rebar3_grisp_io_config:decrypt_token(Password, EncryptedToken) of
-        error ->
-            throw(wrong_local_password);
-        T ->
-            T
-    end.
 
 -spec try_pack_command(rebar_state:t(), boolean()) -> rebar_state:t().
 try_pack_command(RState, Force) ->

@@ -56,5 +56,7 @@ encrypt_decrypt_token(Config) ->
     EncryptedToken = rebar3_grisp_io_config:encrypt_token(Password, Token),
     ?assertNotEqual(<<>>, EncryptedToken),
     ?assertNotEqual(Token, EncryptedToken),
-    ?assertEqual(Token, rebar3_grisp_io_config:decrypt_token(Password, EncryptedToken)),
-    ?assertEqual(error, rebar3_grisp_io_config:decrypt_token(BadPassword, EncryptedToken)).
+    ?assertEqual(Token,
+                 rebar3_grisp_io_config:try_decrypt_token(Password, EncryptedToken)),
+    ?assertThrow(wrong_local_password,
+                 rebar3_grisp_io_config:try_decrypt_token(BadPassword, EncryptedToken)).

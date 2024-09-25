@@ -11,6 +11,7 @@ init(State) ->
     % Register tasks
     lists:foldl(fun(Mod, {ok, S}) -> Mod:init(S) end, {ok, State}, [
         rebar3_grisp_io_auth,
+        rebar3_grisp_io_deploy,
         rebar3_grisp_io_upload,
         rebar3_grisp_io_version
     ]).

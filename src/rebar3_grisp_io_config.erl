@@ -4,7 +4,7 @@
 -export([write_config/2]).
 -export([read_config/1]).
 -export([encrypt_token/2]).
--export([decrypt_token/2]).
+-export([try_decrypt_token/2]).
 
 %--- Includes ------------------------------------------------------------------
 
@@ -68,6 +68,19 @@ encrypt_token(LocalPassword, Token) ->
                                                    Token, ?AAD, true),
     #{iv => IV, tag => Tag, encrypted_token => EncrToken}.
 
+
+-spec try_decrypt_token(Password, EncryptedToken) -> Result | no_return() when
+    Password :: binary(),
+    EncryptedToken :: rebar3_grisp_io_config:encrypted_token(),
+    Result         :: rebar3_grisp_io_config:clear_token().
+try_decrypt_token(Password, EncryptedToken) ->
+    case decrypt_token(Password, EncryptedToken) of
+        error ->
+            throw(wrong_local_password);
+        T ->
+            T
+    end.
+%--- Internals -----------------------------------------------------------------
 %% @doc Decrypt the token present in Encrypted token
 -spec decrypt_token(binary(), encrypted_token()) -> clear_token() | error.
 decrypt_token(LocalPassword, TokenMap) ->
@@ -76,7 +89,6 @@ decrypt_token(LocalPassword, TokenMap) ->
     crypto:crypto_one_time_aead(?AES, PaddedPswd, IV,
                                 EncrToken, ?AAD, Tag, false).
 
-%--- Internals -----------------------------------------------------------------
 auth_config_file(State) ->
     filename:join(rebar_dir:global_config_dir(State), ?CONFIG_FILE).
 
