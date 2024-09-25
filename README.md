@@ -107,6 +107,8 @@ This command has 2 options:
 
 This command allows you to validate an update that has been deployed on a device
 
+You must specify the serial number of the device in the command:
+
 ```shell
 rebar3 grisp-io validate <serial-number>
 ```
