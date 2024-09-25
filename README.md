@@ -107,7 +107,7 @@ This command has 2 options:
 
 This command allows you to validate an update that has been deployed on a device
 
-This command has 1 option and is mandatory:
+This command has 1 mandatory option:
 - `--device` or `-d`: This option specifies the serial number of the target device
 ---
 ### Version
