@@ -56,7 +56,7 @@ start(Config) ->
     {ok, Started2} = application:ensure_all_started(kraft),
 
     {ok, Started3} = application:ensure_all_started(grisp_manager),
-    timer:sleep(1),
+    ok = mnesia:wait_for_tables([grisp_device], 500),
     link_board(),
     Apps = Started1 ++ Started2 ++ Started3,
     [{apps, Apps} | Config].
