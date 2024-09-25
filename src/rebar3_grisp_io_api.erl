@@ -4,6 +4,7 @@
 -export([auth/3]).
 -export([update_package/5]).
 -export([deploy_update/4]).
+-export([validate_update/3]).
 
 %--- Macros --------------------------------------------------------------------
 
@@ -80,7 +81,7 @@ update_package(RState, Token, PackageName, PackageBin, Force) ->
             error({error, Other})
     end.
 
-%% @doc Performs a PUT request tp /grisp-manager/api/update-package/PackageName
+%% @doc Performs a POST request to /grisp-manager/api/deploy-update
 %% @param Token is the clear token of the user
 %% @param PackageName must have the following format "platform.appname.x.y.z.tar
 %% @param Device is the serial number of the targeted device
@@ -110,6 +111,39 @@ deploy_update(RState, Token, PackageName, Device) ->
             throw(wrong_credentials);
         {ok, 404, _, _} ->
             throw(package_does_not_exist);
+        Other ->
+            error({error, Other})
+    end.
+
+%% @doc Performs a POST  request to /grisp-manager/api/validate-update/Device
+%% @param Token is the clear token of the user
+%% @param Device is the serial number of the targeted device
+-spec validate_update(RState, Token, Device) -> Res when
+      RState      :: rebar_state:t(),
+      Token       :: rebar3_grisp_io_config:clear_token(),
+      Device      :: string(),
+      Res         :: ok | no_return().
+validate_update(RState, Token, Device) ->
+    BaseUrl = base_url(RState),
+    URI = list_to_binary("/grisp-manager/api/validate-update/" ++ Device),
+    Url = <<BaseUrl/binary, URI/binary>>,
+    Headers = [{<<"authorization">>, bearer_token(Token)},
+               {<<"content-type">>, <<"application/json">>},
+               {<<"content-length">>, integer_to_binary(0)}],
+    Options = insecure_option(RState),
+
+    case hackney:request(post, Url, Headers, <<>>, Options) of
+        {ok, 204, _, _} ->
+            ok;
+        {ok, 400, _, ClientRef} ->
+            {ok, _RespBody} = hackney:body(ClientRef),
+            error(unknown_request);
+        {ok, 401, _, _} ->
+            throw(wrong_credentials);
+        {ok, 403, _, _} ->
+            throw(forbidden);
+        {ok, 404, _, _} ->
+            throw(device_does_not_exist);
         Other ->
             error({error, Other})
     end.
