@@ -45,10 +45,6 @@ To verify that everything works correctly you can check the version of the plugi
 rebar3 grisp-io version
 ```
 
-## Usage
-
-to complete
-
 ## Tasks
 
 ### Authentication
