@@ -121,12 +121,11 @@ deploy_update(RState, Token, PackageName, Device) ->
 -spec validate_update(RState, Token, Device) -> Res when
       RState      :: rebar_state:t(),
       Token       :: rebar3_grisp_io_config:clear_token(),
-      Device      :: integer(),
+      Device      :: string(),
       Res         :: ok | no_return().
 validate_update(RState, Token, Device) ->
     BaseUrl = base_url(RState),
-    URI = list_to_binary("/grisp-manager/api/validate-update/"
-                         ++ integer_to_list(Device)),
+    URI = list_to_binary("/grisp-manager/api/validate-update/" ++ Device),
     Url = <<BaseUrl/binary, URI/binary>>,
     Headers = [{<<"authorization">>, bearer_token(Token)},
                {<<"content-type">>, <<"application/json">>},

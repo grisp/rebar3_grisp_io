@@ -64,7 +64,7 @@ run_validate(Config) ->
 
     ProviderOutput = rebar3_grisp_io_test_utils:run_grisp_io_command(RState1,
                                                                      ?PROV,
-                                                                     ["-d", "1337"]),
+                                                                     ["1337"]),
 
     ?assertMatch({ok, _}, ProviderOutput).
 

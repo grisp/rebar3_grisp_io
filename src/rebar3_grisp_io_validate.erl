@@ -26,7 +26,7 @@ init(State) ->
         {name, validate},
         {module, ?MODULE},
         {bare, true},
-        {example, "rebar3 grisp_io validate"},
+        {example, "rebar3 grisp-io validate"},
         {opts, options()},
         {profile, [default]},
         {short_desc, "Validate an update"},
@@ -41,8 +41,7 @@ init(State) ->
 do(RState) ->
     {ok, _} = application:ensure_all_started(rebar3_grisp_io),
     try
-        {Args, _} = rebar_state:command_parsed_args(RState),
-        Device = try_get_device_serial(Args),
+        Device = try_get_device_serial(RState),
 
         Config = rebar3_grisp_io_config:read_config(RState),
         EncryptedToken = maps:get(encrypted_token, Config),
@@ -52,7 +51,7 @@ do(RState) ->
 
         rebar3_grisp_io_api:validate_update(RState, Token, Device),
 
-        success("Update validated for device #" ++ integer_to_list(Device)),
+        success("Update validated for device #" ++ Device),
 
         {ok, RState}
     catch
@@ -82,14 +81,12 @@ format_error(Reason) ->
 
 %--- Internals -----------------------------------------------------------------
 
-options() -> [
-    {device, $d, "device", integer, "The serial number of the GRiSP board"}
-].
+options() -> [].
 
-try_get_device_serial(Args) ->
-    case proplists:is_defined(device, Args) of
-        true ->
-            proplists:get_value(device, Args);
-        false ->
-            throw(no_device_serial_number)
+try_get_device_serial(RState) ->
+    case rebar_state:command_args(RState) of
+        [] ->
+            throw(no_device_serial_number);
+        [Serial | _] ->
+            Serial
     end.
