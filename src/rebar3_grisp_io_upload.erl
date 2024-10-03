@@ -114,9 +114,9 @@ options() -> [
 try_pack_command(RState, Force) ->
     Args = case Force of
                true ->
-                   ["--force"];
+                   ["--quiet", "--force"];
                false ->
-                   []
+                   ["--quiet"]
            end,
     case rebar3_grisp_io_utils:grisp_pack(RState, Args) of
         {error, Reason} ->
