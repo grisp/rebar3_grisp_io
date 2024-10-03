@@ -70,14 +70,7 @@ do(RState) ->
             abort("Error: No permission to perform this operation");
         throw:package_does_not_exist ->
             abort("Error: The package doesn't exists. Use the upload command" ++
-                  " first to upload an update package to grisp.io");
-        error:E:S ->
-            case lists:member(test, rebar_state:current_profiles(RState)) of
-                true ->
-                    abort("Unexpected error: ~p -> ~p ~n", [E, S]);
-                false ->
-                    abort("Unexpected error: ~p ~n", [E])
-            end
+                  " first to upload an update package to grisp.io")
     end.
 
 -spec format_error(any()) ->  iolist().
