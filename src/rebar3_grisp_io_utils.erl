@@ -64,6 +64,6 @@ platform(RState) ->
     case lists:keyfind(platform, 1, GRiSP) of
         false ->
             grisp2;
-        {plaform, Platform} ->
+        {platform, Platform} ->
             Platform
     end.
