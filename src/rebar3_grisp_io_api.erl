@@ -64,6 +64,8 @@ update_package(RState, Token, PackageName, PackageBin, Force) ->
     Options = insecure_option(RState),
 
     case hackney:request(put, Url, Headers, PackageBin, Options) of
+        {ok, 201, _, _} ->
+            ok;
         {ok, 204, _, _} ->
             ok;
         {ok, 400, _, ClientRef} ->
@@ -72,6 +74,8 @@ update_package(RState, Token, PackageName, PackageBin, Force) ->
         {ok, 401, _, _} ->
             throw(wrong_credentials);
         {ok, 403, _, _} ->
+            throw(forbidden);
+        {ok, 409, _, _} ->
             throw(package_limit_reached);
         {ok, 412, _, _} ->
             throw(package_already_exists);
@@ -182,4 +186,3 @@ if_none_match(true, _) ->
     [];
 if_none_match(false, Etag) ->
     [{<<"if-none-match">>, list_to_binary(Etag)}].
-

@@ -61,6 +61,8 @@ do(RState) ->
         throw:token_limit_reached ->
             abort("Error: Maximum number of tokens per user reached" ++
                   " Revoke unused tokens and try again");
+        throw:forbidden ->
+            abort("Error: No permission to perform this operation");
         throw:not_matching ->
             abort("Error: The 2 local password entries don't match");
         error:E:S ->
