@@ -42,8 +42,14 @@ do(RState) ->
     {ok, _} = application:ensure_all_started(rebar3_grisp_io),
     try
         {Args, _} = rebar_state:command_parsed_args(RState),
+        RelNameArg = proplists:get_value(relname, Args, undefined),
+        RelVsnArg = proplists:get_value(relvsn, Args, undefined),
         Device = try_get_device_serial(Args),
-        CurrentRelease = rebar3_grisp_io_utils:expected_package_name(RState),
+
+        {RelName, RelVsn}
+            = rebar3_grisp_util:select_release(RState, RelNameArg, RelVsnArg),
+        CurrentRelease = binary_to_list(
+            rebar3_grisp_util:update_file_name(RState, RelName, RelVsn)),
         PackageName = proplists:get_value(package, Args, CurrentRelease),
 
         Config = rebar3_grisp_io_config:read_config(RState),
@@ -68,9 +74,10 @@ do(RState) ->
             abort("Error: Wrong credentials");
         throw:forbidden ->
             abort("Error: No permission to perform this operation");
-        throw:package_does_not_exist ->
-            abort("Error: The package doesn't exists. Use the upload command" ++
-                  " first to upload an update package to grisp.io")
+        throw:{package_does_not_exist, Name} ->
+            abort("Error: The package ~s doesn't exists. Use the upload " ++
+                  "command first to upload an update package to grisp.io",
+                  [Name])
     end.
 
 -spec format_error(any()) ->  iolist().
@@ -80,6 +87,10 @@ format_error(Reason) ->
 %--- Internals -----------------------------------------------------------------
 
 options() -> [
+    {relname, $n, "relname", string,
+     "Specify the name for the release to deploy"},
+    {relvsn, $v, "relvsn", string,
+     "Specify the version of the release to deploy"},
     {device, $d, "device", integer, "The serial number of the GRiSP board"},
     {package, $p, "package", string,
      "The name of the package that will be deployed"}

@@ -41,29 +41,31 @@ auth(RState, Username, Password) ->
 
 %% @doc Performs a PUT request tp /grisp-manager/api/update-package/PackageName
 %% @param Token is the clear token of the user
-%% @param PackageName must have the following format "platform.appname.x.y.z.tar
-%% @param PackageBin is the content of the package
+%% @param PackageName must have the following format
+%%        platform.appname.x.y.z.[profilename[+profilename]].tar
+%% @param PackagePath is the path to the package file to upload
 %% @param Force indicates if the PUT request should overwrite
 %%        the remote files if they exist
--spec update_package(RState, Token, PackageName, PackageBin, Force) -> Res when
+-spec update_package(RState, Token, PackageName, PackagePath, Force) -> Res
+    when
       RState      :: rebar_state:t(),
       Token       :: rebar3_grisp_io_config:clear_token(),
-      PackageName :: string(),
-      PackageBin  :: binary(),
+      PackageName :: binary(),
+      PackagePath :: binary(),
       Force       :: boolean(),
       Res         :: ok | no_return().
-update_package(RState, Token, PackageName, PackageBin, Force) ->
+update_package(RState, Token, PackageName, PackagePath, Force) ->
     BaseUrl = base_url(RState),
     URI = list_to_binary("/grisp-manager/api/update-package/" ++ PackageName),
     Url = <<BaseUrl/binary, URI/binary>>,
-    BinSize = byte_size(PackageBin),
+    BinSize = filelib:file_size(PackagePath),
+    Etag = <<"\"", PackageName/binary, "\"">>,
     Headers = [{<<"authorization">>, bearer_token(Token)},
                {<<"content-type">>, <<"application/octet-stream">>},
                {<<"content-length">>, integer_to_binary(BinSize)}]
-               ++ if_none_match(Force, "\"" ++ PackageName ++ "\""),
+               ++ if_none_match(Force, Etag),
     Options = insecure_option(RState),
-
-    case hackney:request(put, Url, Headers, PackageBin, Options) of
+    case hackney:request(put, Url, Headers, {file, PackagePath}, Options) of
         {ok, 201, _, _} ->
             ok;
         {ok, 204, _, _} ->
@@ -97,7 +99,7 @@ update_package(RState, Token, PackageName, PackageBin, Force) ->
       Res         :: ok | no_return().
 deploy_update(RState, Token, PackageName, Device) ->
     BaseUrl = base_url(RState),
-    URI = list_to_binary( "/grisp-manager/api/deploy-update/" ++ PackageName),
+    URI = list_to_binary("/grisp-manager/api/deploy-update/" ++ PackageName),
     QS = <<"device=", (integer_to_binary(Device))/binary>>,
     Url = hackney_url:make_url(BaseUrl, URI, QS),
     Headers = [{<<"authorization">>, bearer_token(Token)},
@@ -114,7 +116,7 @@ deploy_update(RState, Token, PackageName, Device) ->
         {ok, 401, _, _} ->
             throw(wrong_credentials);
         {ok, 404, _, _} ->
-            throw(package_does_not_exist);
+            throw({package_does_not_exist, PackageName});
         Other ->
             error({error, Other})
     end.
@@ -181,9 +183,9 @@ insecure_option(RState) ->
 %% The Etag format must be: <<"\"...\"">>
 -spec if_none_match(Force, Etag) -> Result when
       Force  :: boolean(),
-      Etag   :: string(),
+      Etag   :: binary(),
       Result :: [{binary(), binary()}].
 if_none_match(true, _) ->
     [];
 if_none_match(false, Etag) ->
-    [{<<"if-none-match">>, list_to_binary(Etag)}].
+    [{<<"if-none-match">>, Etag}].
