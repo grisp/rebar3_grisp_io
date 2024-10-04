@@ -66,6 +66,8 @@ do(RState) ->
             abort("Wrong local password. Try again");
         throw:wrong_credentials ->
             abort("Error: Wrong credentials");
+        throw:forbidden ->
+            abort("Error: No permission to perform this operation");
         throw:package_does_not_exist ->
             abort("Error: The package doesn't exists. Use the upload command" ++
                   " first to upload an update package to grisp.io");

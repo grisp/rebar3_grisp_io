@@ -78,6 +78,8 @@ do(RState) ->
             abort("Wrong local password. Try again");
         throw:wrong_credentials ->
             abort("Error: Wrong credentials");
+        throw:forbidden ->
+            abort("Error: No permission to perform this operation");
         throw:package_limit_reached ->
             abort("Error: The limit number of uploaded package " ++
                   "has been reached for this account");
