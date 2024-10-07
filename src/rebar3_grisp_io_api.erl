@@ -56,7 +56,7 @@ auth(RState, Username, Password) ->
       Res         :: ok | no_return().
 update_package(RState, Token, PackageName, PackagePath, Force) ->
     BaseUrl = base_url(RState),
-    URI = list_to_binary("/grisp-manager/api/update-package/" ++ PackageName),
+    URI = <<"/grisp-manager/api/update-package/", PackageName/binary>>,
     Url = <<BaseUrl/binary, URI/binary>>,
     BinSize = filelib:file_size(PackagePath),
     Etag = <<"\"", PackageName/binary, "\"">>,

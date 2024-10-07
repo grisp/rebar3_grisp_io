@@ -73,6 +73,7 @@ run_deploy(Config) ->
 setup_meck_io() ->
     ok = meck:new(rebar3_grisp_io_io, [no_link]),
     ok = meck:expect(rebar3_grisp_io_io, ask, fun fake_ask/2),
+    ok = meck:expect(rebar3_grisp_io_io, console, fun (_, _) -> ok end),
     ok = meck:expect(rebar3_grisp_io_io, abort, 2, fun (_, [E, S]) -> ct:pal(error, "Error Stack: ~p", [S]), ct:fail("Fail: ~p", [E]) end),
     ok = meck:expect(rebar3_grisp_io_io, abort, 1,
                      fun(Msg) ->
@@ -87,7 +88,7 @@ setup_meck_io() ->
 
 setup_meck_gio_utils() ->
     ok = meck:new(rebar3_grisp_io_utils, [no_link, passthrough]),
-    ok = meck:expect(rebar3_grisp_io_utils, grisp_pack, fun(RState, _) -> {ok, RState} end).
+    ok = meck:expect(rebar3_grisp_io_utils, grisp_pack, fun(RState, _, _) -> {ok, RState} end).
 
 fake_ask("Local password", _) ->
     <<"azerty">>.
