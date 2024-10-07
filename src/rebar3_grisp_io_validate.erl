@@ -61,6 +61,10 @@ do(RState) ->
             abort("Error: the device is not connected to GRiSP.io");
         throw:{error, <<"validate_from_unbooted">>} ->
             abort("Error: device needs to be rebooted.");
+        throw:{error, <<"wait_device">>} ->
+            abort("Error: deployment waiting for device");
+        throw:{error, <<"download">>} ->
+            abort("Error: the device is still downloading the updated");
         throw:no_device_serial_number ->
             abort("Error: The serial number of the target device is missing." ++
                   " Specify it with -d or --device");
