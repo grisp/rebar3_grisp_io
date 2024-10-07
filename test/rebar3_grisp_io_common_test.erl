@@ -115,6 +115,9 @@ link_board() ->
                                      <<"1337">>,
                                      <<"Uuid">>,
                                      null,
+                                     null,
+                                     null,
+                                     manual,
                                      null})
                end,
     mnesia:activity(transaction, AddBoard).
