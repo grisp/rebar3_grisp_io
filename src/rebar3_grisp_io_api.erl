@@ -140,8 +140,9 @@ validate_update(RState, Token, Device) ->
         {ok, 204, _, _} ->
             ok;
         {ok, 400, _, ClientRef} ->
-            {ok, _RespBody} = hackney:body(ClientRef),
-            error(unknown_request);
+            {ok, RespBody} = hackney:body(ClientRef),
+            #{<<"error">> := Error} = jsx:decode(RespBody),
+            throw({error, Error});
         {ok, 401, _, _} ->
             throw(wrong_credentials);
         {ok, 403, _, _} ->
