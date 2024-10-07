@@ -110,8 +110,8 @@ options() -> [
      "Force software package building even if it already exists"}
 ].
 
--spec get_package(rebar_state:t(), boolean(), binary(), binary(), [binary()])
-    -> {ok, rebar_state:t()} | {error, term()}.
+-spec get_package(rebar_state:t(), boolean(), atom(), binary(), [binary()])
+    -> {ok, binary(), binary(), rebar_state:t()} | {error, term()}.
 get_package(RState, Refresh, RelName, RelVsn, ExtraRelArgs) ->
     PackageName = rebar3_grisp_util:update_file_name(RState, RelName, RelVsn),
     PackagePath = rebar3_grisp_util:update_file_path(RState, RelName, RelVsn),
@@ -129,7 +129,7 @@ get_package(RState, Refresh, RelName, RelVsn, ExtraRelArgs) ->
             end
     end.
 
--spec build_package(rebar_state:t(), boolean(), binary(), binary(), [binary()])
+-spec build_package(rebar_state:t(), boolean(), atom(), binary(), [binary()])
     -> {ok, rebar_state:t()} | {error, term()}.
 build_package(RState, Refresh, RelName, RelVsn, ExtraRelArgs) ->
     Args = [
