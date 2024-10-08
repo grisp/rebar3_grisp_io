@@ -84,7 +84,7 @@ setup_meck_io() ->
                                      ct:fail(Msg)
                              end
                      end),
-    ok = meck:expect(rebar3_grisp_io_io, success, 1, fun (_) -> ok end).
+    ok = meck:expect(rebar3_grisp_io_io, success, 2, fun (_, _) -> ok end).
 
 setup_meck_gio_utils() ->
     ok = meck:new(rebar3_grisp_io_utils, [no_link, passthrough]),
