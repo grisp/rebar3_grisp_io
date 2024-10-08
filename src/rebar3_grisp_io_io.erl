@@ -45,7 +45,7 @@ success(Msg) ->
     success(Msg, []).
 success(Msg, Args) ->
     Text = io_lib:format(Msg, Args),
-    rebar_api:console(color(40, Text), Args).
+    rebar_api:console(color(40, Text), []).
 
 %--- Internals -----------------------------------------------------------------
 

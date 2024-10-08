@@ -17,6 +17,12 @@
     success/1,
     success/2]).
 
+
+%--- MACROS --------------------------------------------------------------------
+
+-define(MAX_DDOT, 2).
+
+
 %--- API -----------------------------------------------------------------------
 
 -spec init(rebar_state:t()) -> {ok, rebar_state:t()}.
@@ -39,9 +45,14 @@ init(State) ->
 do(RState) ->
     {ok, _} = application:ensure_all_started(rebar3_grisp_io),
     try
-        {Args, _} = rebar_state:command_parsed_args(RState),
+        {Args, ExtraArgs} = rebar_state:command_parsed_args(RState),
+        RelNameArg = proplists:get_value(relname, Args, undefined),
+        RelVsnArg = proplists:get_value(relvsn, Args, undefined),
+        {RelName, RelVsn}
+            = rebar3_grisp_util:select_release(RState, RelNameArg, RelVsnArg),
+
         Force = proplists:get_value(force, Args),
-        NoPack = proplists:get_value(no_pack, Args),
+        Refresh = proplists:get_value(refresh, Args),
 
         Config = rebar3_grisp_io_config:read_config(RState),
         EncryptedToken = maps:get(encrypted_token, Config),
@@ -49,27 +60,16 @@ do(RState) ->
         Token = rebar3_grisp_io_config:try_decrypt_token(Password,
                                                         EncryptedToken),
 
-        RState1 = case NoPack of
-                      false ->
-                          try_pack_command(RState, Force);
-                      true ->
-                          RState
-                  end,
+        case get_package(RState, Refresh, RelName, RelVsn, ExtraArgs) of
+            {error, _Reason} = Error -> Error;
+            {ok, PackageName, PackagePath, RState2} ->
+                rebar3_grisp_io_api:update_package(RState2, Token, PackageName,
+                                                   PackagePath, Force),
+                success("Package ~s succesfully uploaded to grisp.io",
+                        [PackageName]),
+                {ok, RState2}
+        end
 
-        ProjectDir = rebar_state:dir(RState),
-        PackageName = rebar3_grisp_io_utils:expected_package_name(RState),
-        {ok, PackageBin} = try_get_package_bin(ProjectDir, PackageName),
-
-        rebar3_grisp_io_api:update_package(RState1,
-                                           Token,
-                                           PackageName,
-                                           PackageBin,
-                                           Force),
-
-        success("Package " ++ PackageName ++
-                " succesfully uploaded to grisp.io"),
-
-        {ok, RState1}
     catch
         throw:enoent ->
             abort("No configuration available." ++
@@ -86,15 +86,11 @@ do(RState) ->
         throw:package_already_exists ->
             abort("Error: A package has already been uploaded for " ++
                   "the same release. Use -f or --force to force the upload");
+        throw:{package_not_found, Name} ->
+            abort("Error: Package file ~s not found",
+                  [grisp_tools_util:maybe_relative(Name, ?MAX_DDOT)]);
         throw:package_too_big ->
-            abort("Package size is too big");
-        error:E:S ->
-            case lists:member(test, rebar_state:current_profiles(RState)) of
-                true ->
-                    abort("Unexpected error: ~p -> ~p ~n", [E, S]);
-                false ->
-                    abort("Unexpected error: ~p ~n", [E])
-            end
+            abort("Package size is too big")
     end.
 
 -spec format_error(any()) ->  iolist().
@@ -102,38 +98,47 @@ format_error(Reason) ->
     io_lib:format("~p", [Reason]).
 
 %--- Internals -----------------------------------------------------------------
+
 options() -> [
+    {relname, $n, "relname", string,
+     "Specify the name for the release that will be uploaded"},
+    {relvsn, $v, "relvsn", string,
+     "Specify the version of the release"},
     {force, $f, "force", {boolean, false},
-     "Force overwriting of the files both locally and remotely"},
-    {no_pack, $n, "no-pack", {boolean, false},
-     "Do not run the pack command on " ++
-     "the current project before uploading"}
+     "Force overwriting of the package remotely"},
+    {refresh, $r, "refresh", {boolean, false},
+     "Force software package building even if it already exists"}
 ].
 
--spec try_pack_command(rebar_state:t(), boolean()) -> rebar_state:t().
-try_pack_command(RState, Force) ->
-    Args = case Force of
-               true ->
-                   ["--force"];
-               false ->
-                   []
-           end,
-    case rebar3_grisp_io_utils:grisp_pack(RState, Args) of
-        {error, Reason} ->
-            error(Reason);
-        {ok, NewRState} ->
-            NewRState
+-spec get_package(rebar_state:t(), boolean(), atom(), binary(), [binary()])
+    -> {ok, binary(), binary(), rebar_state:t()} | {error, term()}.
+get_package(RState, Refresh, RelName, RelVsn, ExtraRelArgs) ->
+    PackageName = rebar3_grisp_util:update_file_name(RState, RelName, RelVsn),
+    PackagePath = rebar3_grisp_util:update_file_path(RState, RelName, RelVsn),
+    case filelib:is_file(PackagePath) of
+        true when Refresh =:= false ->
+            RelPath = grisp_tools_util:maybe_relative(PackagePath, ?MAX_DDOT),
+            console("* Using existing package: ~s", [RelPath]),
+            {ok, PackageName, PackagePath, RState};
+        _ ->
+            console("* Building software package...", []),
+            case build_package(RState, Refresh, RelName,
+                               RelVsn, ExtraRelArgs) of
+                {ok, RState2} -> {ok, PackageName, PackagePath, RState2};
+                {error, _Reason} = Error -> Error
+            end
     end.
 
--spec try_get_package_bin(ProjectDir, PackageName) -> Result when
-      ProjectDir  :: string(),
-      PackageName :: string(),
-      Result      :: {ok, binary()} | {error, term()}.
-try_get_package_bin(ProjectDir, PackageName) ->
-    Path = filename:join([ProjectDir, "_grisp/update/", PackageName]),
-    case filelib:is_file(Path) of
-        false ->
-            error(package_not_found);
-        true ->
-            file:read_file(Path)
-    end.
+-spec build_package(rebar_state:t(), boolean(), atom(), binary(), [binary()])
+    -> {ok, rebar_state:t()} | {error, term()}.
+build_package(RState, Refresh, RelName, RelVsn, ExtraRelArgs) ->
+    Args = [
+        "--force",
+        "--quiet",
+        "--relname", atom_to_list(RelName),
+        "--relvsn", RelVsn
+    ] ++ case Refresh of
+        true -> ["--refresh"];
+        false -> []
+    end,
+    rebar3_grisp_io_utils:grisp_pack(RState, Args, ExtraRelArgs).

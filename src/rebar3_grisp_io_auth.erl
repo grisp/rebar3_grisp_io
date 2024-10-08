@@ -64,14 +64,7 @@ do(RState) ->
         throw:forbidden ->
             abort("Error: No permission to perform this operation");
         throw:not_matching ->
-            abort("Error: The 2 local password entries don't match");
-        error:E:S ->
-            case lists:member(test, rebar_state:current_profiles(RState)) of
-                true ->
-                    abort("Unexpected error: ~p -> ~p ~n", [E, S]);
-                false ->
-                    abort("Unexpected error: ~p ~n", [E])
-            end
+            abort("Error: The 2 local password entries don't match")
     end.
 
 -spec format_error(any()) ->  iolist().

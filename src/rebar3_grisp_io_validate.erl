@@ -75,14 +75,7 @@ do(RState) ->
         throw:forbidden ->
             abort("Error: No permission to perform this operation");
         throw:device_does_not_exist->
-            abort("Error: The given board doesn't exists or isn't linked");
-        error:E:S ->
-            case lists:member(test, rebar_state:current_profiles(RState)) of
-                true ->
-                    abort("Unexpected error: ~p -> ~p ~n", [E, S]);
-                false ->
-                    abort("Unexpected error: ~p ~n", [E])
-            end
+            abort("Error: The given board doesn't exists or isn't linked")
     end.
 
 -spec format_error(any()) ->  iolist().
