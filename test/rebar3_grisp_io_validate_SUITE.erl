@@ -79,7 +79,7 @@ setup_meck_io() ->
     ok = meck:expect(rebar3_grisp_io_io, abort, 1,
                      fun(Msg) ->
                              case Msg of
-                                 "Error: The serial number of the target device is missing. Run 'rebar3 grisp-io validate <serial-number>'" ->
+                                 "Error: The serial number of the target device is missing. Specify it with -d or --device" ->
                                      error(no_serial_nb);
                                  _ ->
                                      ct:fail(Msg)

@@ -26,11 +26,12 @@ init(State) ->
         {name, validate},
         {module, ?MODULE},
         {bare, true},
-        {example, "rebar3 grisp-io validate"},
+        {example, "rebar3 grisp-io validate -d 1337"},
         {opts, options()},
         {profile, [default]},
         {short_desc, "Validate an update"},
-        {desc, "Validate an update deployed on a specific device"}
+        {desc, "Validate an update deployed on a specific device~n~n" ++
+         "Example: rebar3 grisp-io validate -d 1337~n"}
     ]),
     {ok, rebar_state:add_provider(State, Provider)}.
 
@@ -41,7 +42,8 @@ init(State) ->
 do(RState) ->
     {ok, _} = application:ensure_all_started(rebar3_grisp_io),
     try
-        Device = try_get_device_serial(RState),
+        {Args, _} = rebar_state:command_parsed_args(RState),
+        Device = integer_to_list(try_get_device_serial(Args)),
 
         Config = rebar3_grisp_io_config:read_config(RState),
         EncryptedToken = maps:get(encrypted_token, Config),
@@ -67,7 +69,7 @@ do(RState) ->
             abort("Error: the device is still downloading the updated");
         throw:no_device_serial_number ->
             abort("Error: The serial number of the target device is missing." ++
-                  " Run 'rebar3 grisp-io validate <serial-number>'");
+                  " Specify it with -d or --device");
         throw:wrong_local_password ->
             abort("Wrong local password. Try again");
         throw:wrong_credentials ->
@@ -84,12 +86,14 @@ format_error(Reason) ->
 
 %--- Internals -----------------------------------------------------------------
 
-options() -> [].
+options() -> [
+    {device, $d, "device", integer, "Specify the serial number of the device"}
+].
 
-try_get_device_serial(RState) ->
-    case rebar_state:command_args(RState) of
-        [] ->
-            throw(no_device_serial_number);
-        [Serial | _] ->
-            Serial
+try_get_device_serial(Args) ->
+    case proplists:is_defined(device, Args) of
+        true ->
+            proplists:get_value(device, Args);
+        false ->
+            throw(no_device_serial_number)
     end.
