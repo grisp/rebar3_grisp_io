@@ -67,7 +67,7 @@ do(RState) ->
             abort("Error: the device is still downloading the updated");
         throw:no_device_serial_number ->
             abort("Error: The serial number of the target device is missing." ++
-                  " Specify it with -d or --device");
+                  " Run 'rebar3 grisp-io validate <serial-number>'");
         throw:wrong_local_password ->
             abort("Wrong local password. Try again");
         throw:wrong_credentials ->

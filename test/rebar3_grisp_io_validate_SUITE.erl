@@ -34,12 +34,13 @@ init_per_suite(Config) ->
                                          <<"Testuser">>,
                                          <<"1234">>,
                                          <<"azerty">>),
-    % Config2.
-    {skip, need_fixing}.
+    Config2.
 
 end_per_suite(Config) ->
     rebar3_grisp_io_common_test:end_per_suite(Config).
 
+init_per_testcase(run_validate, _) ->
+    {skip, need_fixing};
 init_per_testcase(_, Config) ->
     setup_meck_io(),
     setup_meck_gio_utils(),
@@ -78,7 +79,7 @@ setup_meck_io() ->
     ok = meck:expect(rebar3_grisp_io_io, abort, 1,
                      fun(Msg) ->
                              case Msg of
-                                 "Error: The serial number of the target device is missing. Specify it with -d or --device" ->
+                                 "Error: The serial number of the target device is missing. Run 'rebar3 grisp-io validate <serial-number>'" ->
                                      error(no_serial_nb);
                                  _ ->
                                      ct:fail(Msg)
