@@ -34,12 +34,13 @@ init_per_suite(Config) ->
                                          <<"Testuser">>,
                                          <<"1234">>,
                                          <<"azerty">>),
-    % Config2.
-    {skip, need_fixing}.
+    Config2.
 
 end_per_suite(Config) ->
     rebar3_grisp_io_common_test:end_per_suite(Config).
 
+init_per_testcase(run_validate, _) ->
+    {skip, need_fixing};
 init_per_testcase(_, Config) ->
     setup_meck_io(),
     setup_meck_gio_utils(),
