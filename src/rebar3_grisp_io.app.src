@@ -1,5 +1,5 @@
 {application, rebar3_grisp_io, [
-    {description, "A rebar plugin"},
+    {description, "Rebar plugin to integrate with grisp.io"},
     {vsn, "0.1.0"},
     {registered, []},
     {applications, [
@@ -10,5 +10,15 @@
     {env, []},
     {modules, []},
     {licenses, ["Apache-2.0"]},
-    {links, []}
+    {links, [
+        {"GitHub",
+            "https://github.com/grisp/rebar3_grisp_io"
+        },
+        {"Changelog",
+            "https://github.com/grisp/rebar3_grisp_io/blob/main/CHANGELOG.md"
+        },
+        {"Homepage",
+            "https://grisp.io"
+        }
+    ]}
  ]}.
