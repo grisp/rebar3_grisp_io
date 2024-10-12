@@ -58,7 +58,8 @@ do(RState) ->
                                                                  RelVsn),
         rebar3_grisp_io_api:delete_package(RState, Token, PackageName),
 
-        success("Package " ++ PackageName ++ " successfully deleted!"),
+        success(iolist_to_binary(["Package ", PackageName,
+                                             " successfully deleted!"])),
 
         {ok, RState}
     catch
