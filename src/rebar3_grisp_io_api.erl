@@ -64,7 +64,7 @@ update_package(RState, Token, PackageName, PackagePath, Force) ->
                {<<"content-type">>, <<"application/octet-stream">>},
                {<<"content-length">>, integer_to_binary(BinSize)}]
                ++ if_none_match(Force, Etag),
-    Options = insecure_option(RState),
+    Options = [{recv_timeout, infinity}| insecure_option(RState)],
     case hackney:request(put, Url, Headers, {file, PackagePath}, Options) of
         {ok, 201, _, _} ->
             ok;
