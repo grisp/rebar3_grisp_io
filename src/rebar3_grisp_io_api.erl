@@ -3,6 +3,7 @@
 % API
 -export([auth/3]).
 -export([update_package/5]).
+-export([delete_package/3]).
 -export([deploy_update/4]).
 -export([validate_update/3]).
 
@@ -83,6 +84,39 @@ update_package(RState, Token, PackageName, PackagePath, Force) ->
             throw(package_already_exists);
         {ok, 413, _, _} ->
             throw(package_too_big);
+        Other ->
+            error({error, Other})
+    end.
+
+
+%% @doc Performs a PUT request tp /grisp-manager/api/update-package/PackageName
+%% @param Token is the clear token of the user
+%% @param PackageName must have the following format
+%%        platform.appname.x.y.z.[profilename[+profilename]].tar
+-spec delete_package(RState, Token, PackageName) -> Res
+    when
+      RState      :: rebar_state:t(),
+      Token       :: rebar3_grisp_io_config:clear_token(),
+      PackageName :: binary(),
+      Res         :: ok | no_return().
+    delete_package(RState, Token, PackageName) ->
+    BaseUrl = base_url(RState),
+    URI = <<"/grisp-manager/api/update-package/", PackageName/binary>>,
+    Url = <<BaseUrl/binary, URI/binary>>,
+    Headers = [{<<"authorization">>, bearer_token(Token)}],
+    Options = insecure_option(RState),
+    case hackney:request(delete, Url, Headers, Options) of
+        {ok, 204, _, _} ->
+            ok;
+        {ok, 400, _, ClientRef} ->
+            {ok, _RespBody} = hackney:body(ClientRef),
+            error(unknown_request);
+        {ok, 401, _, _} ->
+            throw(wrong_credentials);
+        {ok, 403, _, _} ->
+            throw(forbidden);
+        {ok, 404, _, _} ->
+            throw(package_not_found);
         Other ->
             error({error, Other})
     end.
