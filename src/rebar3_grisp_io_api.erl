@@ -89,7 +89,8 @@ update_package(RState, Token, PackageName, PackagePath, Force) ->
     end.
 
 
-%% @doc Performs a PUT request tp /grisp-manager/api/update-package/PackageName
+%% @doc Performs a DELETE request to
+%% /grisp-manager/api/update-package/PackageName
 %% @param Token is the clear token of the user
 %% @param PackageName must have the following format
 %%        platform.appname.x.y.z.[profilename[+profilename]].tar
