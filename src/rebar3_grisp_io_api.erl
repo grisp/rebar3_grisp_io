@@ -207,8 +207,9 @@ base_url(RState) ->
 
 %% @doc adds the insecure options in the current profile is test (only for dev)
 insecure_option(RState) ->
-    case rebar_state:current_profiles(RState) of
-        [default, test | _] ->
+    Profiles = rebar_state:current_profiles(RState),
+    case lists:member(test, Profiles) of
+        true ->
             [insecure];
         _ ->
             []
