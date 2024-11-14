@@ -106,7 +106,7 @@ update_package(RState, Token, PackageName, PackagePath, Force) ->
     Url = <<BaseUrl/binary, URI/binary>>,
     Headers = [{<<"authorization">>, bearer_token(Token)}],
     Options = insecure_option(RState),
-    case hackney:request(delete, Url, Headers, Options) of
+    case hackney:request(delete, Url, Headers, <<>>, Options) of
         {ok, 204, _, _} ->
             ok;
         {ok, 400, _, ClientRef} ->
