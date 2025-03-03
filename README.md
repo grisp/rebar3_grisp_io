@@ -94,7 +94,7 @@ a new release package. Release packages are identified by 3 elements:
 
 This command has 2 options:
 - `--force` or `-f`: This option will force an overwritting of the local and remote files of a given project and release
-- `--no-pack` or `-p`: With this option enabled, the command won't run internally the command `rebar3 grisp pack`
+- `--refresh` or `-r`: Force software package building even if it already exists
 ---
 ### Validate
 
