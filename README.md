@@ -92,9 +92,9 @@ a new release package. Release packages are identified by 3 elements:
 - The application name
 - The release version in SemVer fashion (by default `0.1.0`)
 
-This command has 1 optional option:
+This command has 2 options:
 - `--force` or `-f`: This option will force an overwritting of the local and remote files of a given project and release
-
+- `--refresh` or `-r`: Force software package building even if it already exists
 ---
 ### Validate
 
