@@ -7,19 +7,25 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+permissions: {}
+
 jobs:
   ci:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     name: Erlang ${{matrix.otp}} / rebar ${{matrix.rebar3}}
+    permissions:
+      contents: read
     strategy:
       matrix:
-        otp: ['25', '26', '27']
+        otp: ['27', '28', '29']
         rebar3: ['3']
     steps:
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
-      - uses: erlef/setup-beam@v1
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1
         with:
           otp-version: ${{matrix.otp}}
           rebar3-version: ${{matrix.rebar3}}
@@ -41,3 +47,19 @@ jobs:
           eval `ssh-agent -s`
           ssh-add - <<< '${{ secrets.STRITZINGER_BOT_SSH_KEY }}'
           rebar3 ct
+
+  zizmor:
+    name: GitHub Actions security analysis
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        with:
+          advanced-security: false
+          annotations: true
+          inputs: .github/workflows
