@@ -84,6 +84,8 @@ do(RState) ->
             abort("Error: Wrong credentials");
         throw:forbidden ->
             abort("Error: No permission to perform this operation");
+        throw:{error, Reason} ->
+            abort("Error: deployment request rejected: ~s", [Reason]);
         throw:{package_does_not_exist, Name} ->
             abort("Error: The package ~s doesn't exists. Use the upload " ++
                   "command first to upload an update package to grisp.io",

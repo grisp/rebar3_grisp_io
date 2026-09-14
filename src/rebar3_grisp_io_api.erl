@@ -136,7 +136,7 @@ update_package(RState, Token, PackageName, PackagePath, Force) ->
 deploy_update(RState, Token, PackageName, Device) ->
     BaseUrl = base_url(RState),
     URI = <<"/grisp-manager/api/deploy-update/", PackageName/binary>>,
-    QS = <<"device=", Device/binary>>,
+    QS = device_query(RState, Device),
     Url = hackney_url:make_url(BaseUrl, URI, QS),
     Headers = [{<<"authorization">>, bearer_token(Token)},
                {<<"content-type">>, <<"application/json">>},
@@ -146,8 +146,9 @@ deploy_update(RState, Token, PackageName, Device) ->
     case hackney:request(post, Url, Headers, <<>>, Options) of
         {ok, 204, _, _} ->
             ok;
-        {ok, 400, _, _RespBody} ->
-            error(unknown_request);
+        {ok, 400, _, RespBody} ->
+            #{<<"error">> := Error} = jsx:decode(RespBody),
+            throw({error, Error});
         {ok, 401, _, _} ->
             throw(wrong_credentials);
         {ok, 404, _, _} ->
@@ -167,7 +168,7 @@ deploy_update(RState, Token, PackageName, Device) ->
 validate_update(RState, Token, Device) ->
     BaseUrl = base_url(RState),
     URI = list_to_binary("/grisp-manager/api/validate-update/" ++ Device),
-    Url = <<BaseUrl/binary, URI/binary>>,
+    Url = hackney_url:make_url(BaseUrl, URI, device_query(RState, Device)),
     Headers = [{<<"authorization">>, bearer_token(Token)},
                {<<"content-type">>, <<"application/json">>},
                {<<"content-length">>, integer_to_binary(0)}],
@@ -198,6 +199,12 @@ basic_auth(Username, Password) ->
 
 bearer_token(Token) ->
     <<"Bearer ", Token/binary>>.
+
+device_query(RState, Device) ->
+    Config = rebar3_grisp_util:config(RState),
+    Platform = rebar3_grisp_util:platform(Config),
+    [{<<"serial_number">>, rebar_utils:to_binary(Device)},
+     {<<"platform">>, rebar_utils:to_binary(Platform)}].
 
 %% @doc fetch the base_url from the options (default points to prod)
 base_url(RState) ->
