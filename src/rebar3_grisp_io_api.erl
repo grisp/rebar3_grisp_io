@@ -65,7 +65,7 @@ update_package(RState, Token, PackageName, PackagePath, Force) ->
                {<<"content-length">>, integer_to_binary(BinSize)}]
                ++ if_none_match(Force, Etag),
     Options = [with_body, {recv_timeout, infinity} | insecure_option(RState)],
-    case hackney:request(put, Url, Headers, {file, PackagePath}, Options) of
+    case upload(Url, Headers, PackagePath, Options) of
         {ok, 201, _, _} ->
             ok;
         {ok, 204, _, _} ->
@@ -220,3 +220,53 @@ if_none_match(true, _) ->
     [];
 if_none_match(false, Etag) ->
     [{<<"if-none-match">>, Etag}].
+
+%% @doc Stream a package file using hackney's protocol-independent request
+%% body API. The old {file, Path} body is not encoded by hackney's HTTP/2
+%% transport and is therefore treated as invalid iodata.
+upload(Url, Headers, PackagePath, Options) ->
+    case file:open(PackagePath, [read, binary, raw]) of
+        {ok, File} ->
+            try
+                upload(Url, Headers, File, Options, stream)
+            after
+                ok = file:close(File)
+            end;
+        {error, Reason} ->
+            {error, {file, Reason}}
+    end.
+
+upload(Url, Headers, File, Options, stream) ->
+    case hackney:request(put, Url, Headers, stream, Options) of
+        {ok, ClientRef} ->
+            StreamFile = fun stream_file/1,
+            case hackney:send_body(ClientRef, {StreamFile, File}) of
+                ok ->
+                    case hackney:finish_send_body(ClientRef) of
+                        ok -> upload_response(ClientRef);
+                        {error, _} = Error -> Error
+                    end;
+                {error, _} = Error ->
+                    Error
+            end;
+        {error, _} = Error ->
+            Error
+    end.
+
+stream_file(File) ->
+    case file:read(File, 1024 * 1024) of
+        {ok, Data} -> {ok, Data, File};
+        eof -> eof;
+        {error, _} = Error -> Error
+    end.
+
+upload_response(ClientRef) ->
+    case hackney:start_response(ClientRef) of
+        {ok, Status, Headers, ResponseRef} ->
+            case hackney:body(ResponseRef) of
+                {ok, Body} -> {ok, Status, Headers, Body};
+                {error, _} = Error -> Error
+            end;
+        {error, _} = Error ->
+            Error
+    end.
