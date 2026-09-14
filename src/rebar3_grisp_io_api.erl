@@ -225,22 +225,11 @@ if_none_match(false, Etag) ->
 %% body API. The old {file, Path} body is not encoded by hackney's HTTP/2
 %% transport and is therefore treated as invalid iodata.
 upload(Url, Headers, PackagePath, Options) ->
-    case file:open(PackagePath, [read, binary, raw]) of
-        {ok, File} ->
-            try
-                upload(Url, Headers, File, Options, stream)
-            after
-                ok = file:close(File)
-            end;
-        {error, Reason} ->
-            {error, {file, Reason}}
-    end.
-
-upload(Url, Headers, File, Options, stream) ->
     case hackney:request(put, Url, Headers, stream, Options) of
         {ok, ClientRef} ->
             StreamFile = fun stream_file/1,
-            case hackney:send_body(ClientRef, {StreamFile, File}) of
+            StreamState = {open, PackagePath},
+            case hackney:send_body(ClientRef, {StreamFile, StreamState}) of
                 ok ->
                     case hackney:finish_send_body(ClientRef) of
                         ok -> upload_response(ClientRef);
@@ -253,11 +242,20 @@ upload(Url, Headers, File, Options, stream) ->
             Error
     end.
 
+stream_file({open, PackagePath}) ->
+    case file:open(PackagePath, [read, binary, raw]) of
+        {ok, File} -> stream_file(File);
+        {error, Reason} -> {error, {file, Reason}}
+    end;
 stream_file(File) ->
     case file:read(File, 1024 * 1024) of
         {ok, Data} -> {ok, Data, File};
-        eof -> eof;
-        {error, _} = Error -> Error
+        eof ->
+            ok = file:close(File),
+            eof;
+        {error, _} = Error ->
+            _ = file:close(File),
+            Error
     end.
 
 upload_response(ClientRef) ->
