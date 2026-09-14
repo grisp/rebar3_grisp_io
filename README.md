@@ -16,6 +16,7 @@ rebar3 help grisp-io [<task>]
         - [Authentication](#authentication)
         - [Deploy](#deploy)
         - [Upload](#upload)
+        - [List](#list)
         - [Validate](#validate)
         - [Version](#version)
 
@@ -95,6 +96,26 @@ a new release package. Release packages are identified by 3 elements:
 This command has 2 options:
 - `--force` or `-f`: This option will force an overwritting of the local and remote files of a given project and release
 - `--refresh` or `-r`: Force software package building even if it already exists
+---
+### List
+
+> [!IMPORTANT]
+> You need to authenticate first and request a token using [Authentication](#authentication).
+
+This command lists the update packages stored for your grisp.io account,
+including their application, version, platform, and last-modified time.
+
+```shell
+rebar3 grisp-io list
+```
+
+The value in the `NAME` column is the package identifier accepted by the
+delete command:
+
+```shell
+rebar3 grisp-io delete grisp2.myapp.0.1.0.tar
+```
+
 ---
 ### Validate
 

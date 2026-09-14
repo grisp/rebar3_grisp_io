@@ -2,6 +2,7 @@
 
 % API
 -export([auth/3]).
+-export([list_packages/2]).
 -export([update_package/5]).
 -export([delete_package/3]).
 -export([deploy_update/4]).
@@ -35,6 +36,28 @@ auth(RState, Username, Password) ->
             throw(wrong_credentials);
         {ok, 403, _, _} ->
             throw(token_limit_reached);
+        Other ->
+            error({error, Other})
+    end.
+
+%% @doc List the update packages stored for the authenticated user.
+-spec list_packages(RState, Token) -> Packages when
+      RState   :: rebar_state:t(),
+      Token    :: rebar3_grisp_io_config:clear_token(),
+      Packages :: [map()] | no_return().
+list_packages(RState, Token) ->
+    BaseUrl = base_url(RState),
+    Url = <<BaseUrl/binary, "/grisp-manager/api/update-package">>,
+    Headers = [{<<"authorization">>, bearer_token(Token)}],
+    Options = [with_body | insecure_option(RState)],
+    case hackney:request(get, Url, Headers, <<>>, Options) of
+        {ok, 200, _, RespBody} ->
+            #{<<"packages">> := Packages} = jsx:decode(RespBody),
+            Packages;
+        {ok, 401, _, _} ->
+            throw(wrong_credentials);
+        {ok, 403, _, _} ->
+            throw(forbidden);
         Other ->
             error({error, Other})
     end.
