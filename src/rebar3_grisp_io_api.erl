@@ -64,7 +64,11 @@ update_package(RState, Token, PackageName, PackagePath, Force) ->
                {<<"content-type">>, <<"application/octet-stream">>},
                {<<"content-length">>, integer_to_binary(BinSize)}]
                ++ if_none_match(Force, Etag),
-    Options = [with_body, {recv_timeout, infinity} | insecure_option(RState)],
+    %% This endpoint closes HTTP/2 request streams. Keep the fixed-length
+    %% package upload on HTTP/1.1 even though hackney 4 enables HTTP/2 by
+    %% default.
+    Options = [with_body, {protocols, [http1]},
+               {recv_timeout, infinity} | insecure_option(RState)],
     case upload(Url, Headers, PackagePath, Options) of
         {ok, 201, _, _} ->
             ok;
@@ -221,50 +225,26 @@ if_none_match(true, _) ->
 if_none_match(false, Etag) ->
     [{<<"if-none-match">>, Etag}].
 
-%% @doc Stream a package file using hackney's protocol-independent request
-%% body API. The old {file, Path} body is not encoded by hackney's HTTP/2
-%% transport and is therefore treated as invalid iodata.
+%% @doc Send the package as a fixed-length body. hackney 4 no longer encodes
+%% {file, Path}, while its streaming request API changes the wire framing
+%% expected by the package upload endpoint.
 upload(Url, Headers, PackagePath, Options) ->
-    case hackney:request(put, Url, Headers, stream, Options) of
-        {ok, ClientRef} ->
-            StreamFile = fun stream_file/1,
-            StreamState = {open, PackagePath},
-            case hackney:send_body(ClientRef, {StreamFile, StreamState}) of
-                ok ->
-                    case hackney:finish_send_body(ClientRef) of
-                        ok -> upload_response(ClientRef);
-                        {error, _} = Error -> Error
-                    end;
-                {error, _} = Error ->
-                    Error
+    case file:read_file(PackagePath) of
+        {ok, Body} ->
+            Spinner = rebar3_grisp_io_io:spinner_start(),
+            try hackney:request(put, Url, Headers, Body, Options) of
+                Result ->
+                    rebar3_grisp_io_io:spinner_stop(
+                      Spinner, upload_status(Result)),
+                    Result
+            catch
+                Class:Reason:Stacktrace ->
+                    rebar3_grisp_io_io:spinner_stop(Spinner, failed),
+                    erlang:raise(Class, Reason, Stacktrace)
             end;
-        {error, _} = Error ->
-            Error
+        {error, Reason} ->
+            {error, {file, Reason}}
     end.
 
-stream_file({open, PackagePath}) ->
-    case file:open(PackagePath, [read, binary, raw]) of
-        {ok, File} -> stream_file(File);
-        {error, Reason} -> {error, {file, Reason}}
-    end;
-stream_file(File) ->
-    case file:read(File, 1024 * 1024) of
-        {ok, Data} -> {ok, Data, File};
-        eof ->
-            ok = file:close(File),
-            eof;
-        {error, _} = Error ->
-            _ = file:close(File),
-            Error
-    end.
-
-upload_response(ClientRef) ->
-    case hackney:start_response(ClientRef) of
-        {ok, Status, Headers, ResponseRef} ->
-            case hackney:body(ResponseRef) of
-                {ok, Body} -> {ok, Status, Headers, Body};
-                {error, _} = Error -> Error
-            end;
-        {error, _} = Error ->
-            Error
-    end.
+upload_status({ok, _, _, _}) -> done;
+upload_status(_) -> failed.
