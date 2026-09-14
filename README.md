@@ -10,15 +10,15 @@ rebar3 help grisp-io [<task>]
 
 📖 **Table of content**
 - [rebar3\_grisp\_io](#rebar3_grisp_io)
-    - [Installation](#installation)
-    - [Usage](#usage)
-    - [Tasks](#tasks)
-        - [Authentication](#authentication)
-        - [Deploy](#deploy)
-        - [Upload](#upload)
-        - [List](#list)
-        - [Validate](#validate)
-        - [Version](#version)
+  - [Installation](#installation)
+  - [Tasks](#tasks)
+    - [Authentication](#authentication)
+    - [Deploy](#deploy)
+    - [Upload](#upload)
+    - [List](#list)
+    - [Delete](#delete)
+    - [Validate](#validate)
+    - [Version](#version)
 
 ## Installation
 
@@ -109,12 +109,29 @@ including their application, version, platform, and last-modified time.
 rebar3 grisp-io list
 ```
 
-The value in the `NAME` column is the package identifier accepted by the
-delete command:
+---
+### Delete
+
+> [!IMPORTANT]
+> You need to authenticate first and request a token using [Authentication](#authentication).
+
+This command permanently deletes an update package stored in your grisp.io
+account. Use the package identifier shown in the `NAME` column of
+`rebar3 grisp-io list`:
 
 ```shell
 rebar3 grisp-io delete grisp2.myapp.0.1.0.tar
 ```
+
+When no package name is provided, the command remains backward compatible and
+derives the package name from the current project's release and platform
+configuration:
+
+```shell
+rebar3 grisp-io delete
+```
+
+Only one package name can be specified per invocation.
 
 ---
 ### Validate
