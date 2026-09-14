@@ -25,11 +25,10 @@ auth(RState, Username, Password) ->
     Headers = [{<<"authorization">>, basic_auth(Username, Password)},
                {<<"content-type">>, <<"application/json">>},
                {<<"content-length">>, integer_to_binary(byte_size(Body))}],
-    Options = insecure_option(RState),
+    Options = [with_body | insecure_option(RState)],
 
     case hackney:request(post, Url, Headers, Body, Options) of
-        {ok, 200, _, ClientRef} ->
-            {ok, RespBody} = hackney:body(ClientRef),
+        {ok, 200, _, RespBody} ->
             #{<<"token">> := Token} = jsx:decode(RespBody),
             Token;
         {ok, 401, _, _} ->
@@ -65,14 +64,13 @@ update_package(RState, Token, PackageName, PackagePath, Force) ->
                {<<"content-type">>, <<"application/octet-stream">>},
                {<<"content-length">>, integer_to_binary(BinSize)}]
                ++ if_none_match(Force, Etag),
-    Options = [{recv_timeout, infinity}| insecure_option(RState)],
+    Options = [with_body, {recv_timeout, infinity} | insecure_option(RState)],
     case hackney:request(put, Url, Headers, {file, PackagePath}, Options) of
         {ok, 201, _, _} ->
             ok;
         {ok, 204, _, _} ->
             ok;
-        {ok, 400, _, ClientRef} ->
-            {ok, _RespBody} = hackney:body(ClientRef),
+        {ok, 400, _, _RespBody} ->
             error(unknown_request);
         {ok, 401, _, _} ->
             throw(wrong_credentials);
@@ -105,12 +103,11 @@ update_package(RState, Token, PackageName, PackagePath, Force) ->
     URI = <<"/grisp-manager/api/update-package/", PackageName/binary>>,
     Url = <<BaseUrl/binary, URI/binary>>,
     Headers = [{<<"authorization">>, bearer_token(Token)}],
-    Options = insecure_option(RState),
+    Options = [with_body | insecure_option(RState)],
     case hackney:request(delete, Url, Headers, <<>>, Options) of
         {ok, 204, _, _} ->
             ok;
-        {ok, 400, _, ClientRef} ->
-            {ok, _RespBody} = hackney:body(ClientRef),
+        {ok, 400, _, _RespBody} ->
             error(unknown_request);
         {ok, 401, _, _} ->
             throw(wrong_credentials);
@@ -140,13 +137,12 @@ deploy_update(RState, Token, PackageName, Device) ->
     Headers = [{<<"authorization">>, bearer_token(Token)},
                {<<"content-type">>, <<"application/json">>},
                {<<"content-length">>, integer_to_binary(0)}],
-    Options = insecure_option(RState),
+    Options = [with_body | insecure_option(RState)],
 
     case hackney:request(post, Url, Headers, <<>>, Options) of
         {ok, 204, _, _} ->
             ok;
-        {ok, 400, _, ClientRef} ->
-            {ok, _RespBody} = hackney:body(ClientRef),
+        {ok, 400, _, _RespBody} ->
             error(unknown_request);
         {ok, 401, _, _} ->
             throw(wrong_credentials);
@@ -171,13 +167,12 @@ validate_update(RState, Token, Device) ->
     Headers = [{<<"authorization">>, bearer_token(Token)},
                {<<"content-type">>, <<"application/json">>},
                {<<"content-length">>, integer_to_binary(0)}],
-    Options = insecure_option(RState),
+    Options = [with_body | insecure_option(RState)],
 
     case hackney:request(post, Url, Headers, <<>>, Options) of
         {ok, 204, _, _} ->
             ok;
-        {ok, 400, _, ClientRef} ->
-            {ok, RespBody} = hackney:body(ClientRef),
+        {ok, 400, _, RespBody} ->
             #{<<"error">> := Error} = jsx:decode(RespBody),
             throw({error, Error});
         {ok, 401, _, _} ->
