@@ -7,10 +7,6 @@
 -export([error_message/1, error_message/2]).
 -export([success/1, success/2]).
 
-%--- MACROS --------------------------------------------------------------------
-
--define(WHITESPACE, unicode_util:whitespace()).
-
 %--- Types ---------------------------------------------------------------------
 
 -type input_type() :: string | password.
@@ -109,7 +105,7 @@ get(Type, String) when Type =:= string orelse Type =:= password ->
         [] ->
             {error, no_data};
         _ when is_list(String) ->
-            Trimmed = string:trim(String, both, ?WHITESPACE),
+            Trimmed = string:trim(String),
             {ok, unicode:characters_to_binary(Trimmed)};
         _ ->
             {error, wrong_data_type}
