@@ -17,7 +17,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        otp: ['27', '28', '29']
+        otp: ['28', '29']
         rebar3: ['3']
     steps:
 
