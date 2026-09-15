@@ -18,6 +18,8 @@ rebar3 help grisp-io [<task>]
     - [List](#list)
     - [Delete](#delete)
     - [Validate](#validate)
+    - [Cancel](#cancel)
+    - [Reboot](#reboot)
     - [Version](#version)
 
 ## Installation
@@ -147,6 +149,37 @@ This command has 1 mandatory option:
 ```shell
 rebar3 grisp-io validate -d SERIAL_NUMBER
 ```
+
+---
+### Cancel
+
+> [!IMPORTANT]
+> You need to authenticate first and request a token using [Authentication](#authentication).
+
+This command cancels the update running on a device linked to your grisp.io
+account:
+
+```shell
+rebar3 grisp-io cancel -d DEVICE_IDENTIFIER
+```
+
+The `--device` (`-d`) option is mandatory. The platform is read from the
+project's GRiSP configuration.
+
+---
+### Reboot
+
+> [!IMPORTANT]
+> You need to authenticate first and request a token using [Authentication](#authentication).
+
+This command requests a reboot of a device linked to your grisp.io account:
+
+```shell
+rebar3 grisp-io reboot -d DEVICE_IDENTIFIER
+```
+
+The `--device` (`-d`) option is mandatory. The platform is read from the
+project's GRiSP configuration.
 
 ---
 ### Version

@@ -7,6 +7,8 @@
 -export([delete_package/3]).
 -export([deploy_update/4]).
 -export([validate_update/3]).
+-export([cancel_update/3]).
+-export([reboot_device/3]).
 
 %--- Macros --------------------------------------------------------------------
 
@@ -204,6 +206,70 @@ validate_update(RState, Token, Device) ->
                {<<"content-length">>, integer_to_binary(0)}],
     Options = [with_body | insecure_option(RState)],
 
+    case hackney:request(post, Url, Headers, <<>>, Options) of
+        {ok, 204, _, _} ->
+            ok;
+        {ok, 400, _, RespBody} ->
+            #{<<"error">> := Error} = jsx:decode(RespBody),
+            throw({error, Error});
+        {ok, 401, _, _} ->
+            throw(wrong_credentials);
+        {ok, 403, _, _} ->
+            throw(forbidden);
+        {ok, 404, _, _} ->
+            throw(device_does_not_exist);
+        Other ->
+            error({error, Other})
+    end.
+
+%% @doc Cancel an update through the GRiSP Manager REST API.
+-spec cancel_update(RState, Token, Device) -> Res when
+      RState :: rebar_state:t(),
+      Token  :: rebar3_grisp_io_config:clear_token(),
+      Device :: string() | binary(),
+      Res    :: ok | no_return().
+cancel_update(RState, Token, Device) ->
+    BaseUrl = base_url(RState),
+    Url = hackney_url:make_url(
+            BaseUrl,
+            <<"/grisp-manager/api/cancel-update">>,
+            device_query(RState, Device)),
+    Headers = [{<<"authorization">>, bearer_token(Token)},
+               {<<"content-type">>, <<"application/json">>},
+               {<<"content-length">>, <<"0">>}],
+    Options = [with_body | insecure_option(RState)],
+    case hackney:request(post, Url, Headers, <<>>, Options) of
+        {ok, 204, _, _} ->
+            ok;
+        {ok, 400, _, RespBody} ->
+            #{<<"error">> := Error} = jsx:decode(RespBody),
+            throw({error, Error});
+        {ok, 401, _, _} ->
+            throw(wrong_credentials);
+        {ok, 403, _, _} ->
+            throw(forbidden);
+        {ok, 404, _, _} ->
+            throw(device_does_not_exist);
+        Other ->
+            error({error, Other})
+    end.
+
+%% @doc Request a reboot of a device through the GRiSP Manager REST API.
+-spec reboot_device(RState, Token, Device) -> Res when
+      RState :: rebar_state:t(),
+      Token  :: rebar3_grisp_io_config:clear_token(),
+      Device :: string() | binary(),
+      Res    :: ok | no_return().
+reboot_device(RState, Token, Device) ->
+    BaseUrl = base_url(RState),
+    Url = hackney_url:make_url(
+            BaseUrl,
+            <<"/grisp-manager/api/reboot-device">>,
+            device_query(RState, Device)),
+    Headers = [{<<"authorization">>, bearer_token(Token)},
+               {<<"content-type">>, <<"application/json">>},
+               {<<"content-length">>, <<"0">>}],
+    Options = [with_body | insecure_option(RState)],
     case hackney:request(post, Url, Headers, <<>>, Options) of
         {ok, 204, _, _} ->
             ok;

@@ -16,5 +16,7 @@ init(State) ->
         rebar3_grisp_io_list,
         rebar3_grisp_io_delete,
         rebar3_grisp_io_validate,
+        rebar3_grisp_io_cancel,
+        rebar3_grisp_io_reboot,
         rebar3_grisp_io_version
     ]).
