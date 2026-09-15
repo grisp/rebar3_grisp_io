@@ -2,10 +2,13 @@
 
 % API
 -export([auth/3]).
+-export([list_packages/2]).
 -export([update_package/5]).
 -export([delete_package/3]).
 -export([deploy_update/4]).
 -export([validate_update/3]).
+-export([cancel_update/3]).
+-export([reboot_device/3]).
 
 %--- Macros --------------------------------------------------------------------
 
@@ -25,17 +28,38 @@ auth(RState, Username, Password) ->
     Headers = [{<<"authorization">>, basic_auth(Username, Password)},
                {<<"content-type">>, <<"application/json">>},
                {<<"content-length">>, integer_to_binary(byte_size(Body))}],
-    Options = insecure_option(RState),
+    Options = [with_body | insecure_option(RState)],
 
     case hackney:request(post, Url, Headers, Body, Options) of
-        {ok, 200, _, ClientRef} ->
-            {ok, RespBody} = hackney:body(ClientRef),
+        {ok, 200, _, RespBody} ->
             #{<<"token">> := Token} = jsx:decode(RespBody),
             Token;
         {ok, 401, _, _} ->
             throw(wrong_credentials);
         {ok, 403, _, _} ->
             throw(token_limit_reached);
+        Other ->
+            error({error, Other})
+    end.
+
+%% @doc List the update packages stored for the authenticated user.
+-spec list_packages(RState, Token) -> Packages when
+      RState   :: rebar_state:t(),
+      Token    :: rebar3_grisp_io_config:clear_token(),
+      Packages :: [map()] | no_return().
+list_packages(RState, Token) ->
+    BaseUrl = base_url(RState),
+    Url = <<BaseUrl/binary, "/grisp-manager/api/update-package">>,
+    Headers = [{<<"authorization">>, bearer_token(Token)}],
+    Options = [with_body | insecure_option(RState)],
+    case hackney:request(get, Url, Headers, <<>>, Options) of
+        {ok, 200, _, RespBody} ->
+            #{<<"packages">> := Packages} = jsx:decode(RespBody),
+            Packages;
+        {ok, 401, _, _} ->
+            throw(wrong_credentials);
+        {ok, 403, _, _} ->
+            throw(forbidden);
         Other ->
             error({error, Other})
     end.
@@ -65,14 +89,17 @@ update_package(RState, Token, PackageName, PackagePath, Force) ->
                {<<"content-type">>, <<"application/octet-stream">>},
                {<<"content-length">>, integer_to_binary(BinSize)}]
                ++ if_none_match(Force, Etag),
-    Options = [{recv_timeout, infinity}| insecure_option(RState)],
-    case hackney:request(put, Url, Headers, {file, PackagePath}, Options) of
+    %% This endpoint closes HTTP/2 request streams. Keep the fixed-length
+    %% package upload on HTTP/1.1 even though hackney 4 enables HTTP/2 by
+    %% default.
+    Options = [with_body, {protocols, [http1]},
+               {recv_timeout, infinity} | insecure_option(RState)],
+    case upload(Url, Headers, PackagePath, Options) of
         {ok, 201, _, _} ->
             ok;
         {ok, 204, _, _} ->
             ok;
-        {ok, 400, _, ClientRef} ->
-            {ok, _RespBody} = hackney:body(ClientRef),
+        {ok, 400, _, _RespBody} ->
             error(unknown_request);
         {ok, 401, _, _} ->
             throw(wrong_credentials);
@@ -105,12 +132,11 @@ update_package(RState, Token, PackageName, PackagePath, Force) ->
     URI = <<"/grisp-manager/api/update-package/", PackageName/binary>>,
     Url = <<BaseUrl/binary, URI/binary>>,
     Headers = [{<<"authorization">>, bearer_token(Token)}],
-    Options = insecure_option(RState),
+    Options = [with_body | insecure_option(RState)],
     case hackney:request(delete, Url, Headers, <<>>, Options) of
         {ok, 204, _, _} ->
             ok;
-        {ok, 400, _, ClientRef} ->
-            {ok, _RespBody} = hackney:body(ClientRef),
+        {ok, 400, _, _RespBody} ->
             error(unknown_request);
         {ok, 401, _, _} ->
             throw(wrong_credentials);
@@ -135,23 +161,30 @@ update_package(RState, Token, PackageName, PackagePath, Force) ->
 deploy_update(RState, Token, PackageName, Device) ->
     BaseUrl = base_url(RState),
     URI = <<"/grisp-manager/api/deploy-update/", PackageName/binary>>,
-    QS = <<"device=", Device/binary>>,
+    QS = device_query(RState, Device),
     Url = hackney_url:make_url(BaseUrl, URI, QS),
     Headers = [{<<"authorization">>, bearer_token(Token)},
                {<<"content-type">>, <<"application/json">>},
                {<<"content-length">>, integer_to_binary(0)}],
-    Options = insecure_option(RState),
+    Options = [with_body | insecure_option(RState)],
 
     case hackney:request(post, Url, Headers, <<>>, Options) of
         {ok, 204, _, _} ->
             ok;
-        {ok, 400, _, ClientRef} ->
-            {ok, _RespBody} = hackney:body(ClientRef),
-            error(unknown_request);
+        {ok, 400, _, RespBody} ->
+            #{<<"error">> := Error} = jsx:decode(RespBody),
+            throw({error, Error});
         {ok, 401, _, _} ->
             throw(wrong_credentials);
         {ok, 404, _, _} ->
-            throw({package_does_not_exist, PackageName});
+            case lists:any(
+                   fun(#{<<"name">> := Name}) -> Name =:= PackageName;
+                      (_) -> false
+                   end,
+                   list_packages(RState, Token)) of
+                true -> throw({device_does_not_exist, Device});
+                false -> throw({package_does_not_exist, PackageName})
+            end;
         Other ->
             error({error, Other})
     end.
@@ -167,17 +200,80 @@ deploy_update(RState, Token, PackageName, Device) ->
 validate_update(RState, Token, Device) ->
     BaseUrl = base_url(RState),
     URI = list_to_binary("/grisp-manager/api/validate-update/" ++ Device),
-    Url = <<BaseUrl/binary, URI/binary>>,
+    Url = hackney_url:make_url(BaseUrl, URI, device_query(RState, Device)),
     Headers = [{<<"authorization">>, bearer_token(Token)},
                {<<"content-type">>, <<"application/json">>},
                {<<"content-length">>, integer_to_binary(0)}],
-    Options = insecure_option(RState),
+    Options = [with_body | insecure_option(RState)],
 
     case hackney:request(post, Url, Headers, <<>>, Options) of
         {ok, 204, _, _} ->
             ok;
-        {ok, 400, _, ClientRef} ->
-            {ok, RespBody} = hackney:body(ClientRef),
+        {ok, 400, _, RespBody} ->
+            #{<<"error">> := Error} = jsx:decode(RespBody),
+            throw({error, Error});
+        {ok, 401, _, _} ->
+            throw(wrong_credentials);
+        {ok, 403, _, _} ->
+            throw(forbidden);
+        {ok, 404, _, _} ->
+            throw(device_does_not_exist);
+        Other ->
+            error({error, Other})
+    end.
+
+%% @doc Cancel an update through the GRiSP Manager REST API.
+-spec cancel_update(RState, Token, Device) -> Res when
+      RState :: rebar_state:t(),
+      Token  :: rebar3_grisp_io_config:clear_token(),
+      Device :: string() | binary(),
+      Res    :: ok | no_return().
+cancel_update(RState, Token, Device) ->
+    BaseUrl = base_url(RState),
+    Url = hackney_url:make_url(
+            BaseUrl,
+            <<"/grisp-manager/api/cancel-update">>,
+            device_query(RState, Device)),
+    Headers = [{<<"authorization">>, bearer_token(Token)},
+               {<<"content-type">>, <<"application/json">>},
+               {<<"content-length">>, <<"0">>}],
+    Options = [with_body | insecure_option(RState)],
+    case hackney:request(post, Url, Headers, <<>>, Options) of
+        {ok, 204, _, _} ->
+            ok;
+        {ok, 400, _, RespBody} ->
+            #{<<"error">> := Error} = jsx:decode(RespBody),
+            throw({error, Error});
+        {ok, 401, _, _} ->
+            throw(wrong_credentials);
+        {ok, 403, _, _} ->
+            throw(forbidden);
+        {ok, 404, _, _} ->
+            throw(device_does_not_exist);
+        Other ->
+            error({error, Other})
+    end.
+
+%% @doc Request a reboot of a device through the GRiSP Manager REST API.
+-spec reboot_device(RState, Token, Device) -> Res when
+      RState :: rebar_state:t(),
+      Token  :: rebar3_grisp_io_config:clear_token(),
+      Device :: string() | binary(),
+      Res    :: ok | no_return().
+reboot_device(RState, Token, Device) ->
+    BaseUrl = base_url(RState),
+    Url = hackney_url:make_url(
+            BaseUrl,
+            <<"/grisp-manager/api/reboot-device">>,
+            device_query(RState, Device)),
+    Headers = [{<<"authorization">>, bearer_token(Token)},
+               {<<"content-type">>, <<"application/json">>},
+               {<<"content-length">>, <<"0">>}],
+    Options = [with_body | insecure_option(RState)],
+    case hackney:request(post, Url, Headers, <<>>, Options) of
+        {ok, 204, _, _} ->
+            ok;
+        {ok, 400, _, RespBody} ->
             #{<<"error">> := Error} = jsx:decode(RespBody),
             throw({error, Error});
         {ok, 401, _, _} ->
@@ -200,6 +296,12 @@ basic_auth(Username, Password) ->
 bearer_token(Token) ->
     <<"Bearer ", Token/binary>>.
 
+device_query(RState, Device) ->
+    Config = rebar3_grisp_util:config(RState),
+    Platform = rebar3_grisp_util:platform(Config),
+    [{<<"serial_number">>, rebar_utils:to_binary(Device)},
+     {<<"platform">>, rebar_utils:to_binary(Platform)}].
+
 %% @doc fetch the base_url from the options (default points to prod)
 base_url(RState) ->
     Options = rebar_state:get(RState, rebar3_grisp_io, []),
@@ -207,12 +309,10 @@ base_url(RState) ->
 
 %% @doc adds the insecure options in the current profile is test (only for dev)
 insecure_option(RState) ->
-    Profiles = rebar_state:current_profiles(RState),
-    case lists:member(test, Profiles) of
-        true ->
-            [insecure];
-        _ ->
-            []
+    Options = rebar_state:get(RState, rebar3_grisp_io, []),
+    case proplists:get_bool(insecure, Options) of
+        true -> [{ssl_options, [{insecure, true}]}, insecure];
+        false -> []
     end.
 
 %% @doc Build the header "if-none-match" if force is false
@@ -225,3 +325,27 @@ if_none_match(true, _) ->
     [];
 if_none_match(false, Etag) ->
     [{<<"if-none-match">>, Etag}].
+
+%% @doc Send the package as a fixed-length body. hackney 4 no longer encodes
+%% {file, Path}, while its streaming request API changes the wire framing
+%% expected by the package upload endpoint.
+upload(Url, Headers, PackagePath, Options) ->
+    case file:read_file(PackagePath) of
+        {ok, Body} ->
+            Spinner = rebar3_grisp_io_io:spinner_start(),
+            try hackney:request(put, Url, Headers, Body, Options) of
+                Result ->
+                    rebar3_grisp_io_io:spinner_stop(
+                      Spinner, upload_status(Result)),
+                    Result
+            catch
+                Class:Reason:Stacktrace ->
+                    rebar3_grisp_io_io:spinner_stop(Spinner, failed),
+                    erlang:raise(Class, Reason, Stacktrace)
+            end;
+        {error, Reason} ->
+            {error, {file, Reason}}
+    end.
+
+upload_status({ok, _, _, _}) -> done;
+upload_status(_) -> failed.

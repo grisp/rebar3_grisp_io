@@ -43,7 +43,7 @@ do(RState) ->
     {ok, _} = application:ensure_all_started(rebar3_grisp_io),
     try
         {Args, _} = rebar_state:command_parsed_args(RState),
-        Device = integer_to_list(try_get_device_serial(Args)),
+        Device = try_get_device_serial(Args),
 
         Config = rebar3_grisp_io_config:read_config(RState),
         EncryptedToken = maps:get(encrypted_token, Config),
@@ -87,7 +87,7 @@ format_error(Reason) ->
 %--- Internals -----------------------------------------------------------------
 
 options() -> [
-    {device, $d, "device", integer, "Specify the serial number of the device"}
+    {device, $d, "device", string, "Specify the identifier of the device"}
 ].
 
 try_get_device_serial(Args) ->

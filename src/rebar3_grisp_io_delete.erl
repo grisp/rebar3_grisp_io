@@ -26,12 +26,13 @@ init(State) ->
         {name, delete},
         {module, ?MODULE},
         {bare, true},
-        {example, "rebar3 grisp-io delete"},
+        {example, "rebar3 grisp-io delete [package-name]"},
         {opts, []},
         {profile, [default]},
         {short_desc, "Delete an update package"},
         {desc, "Delete an update package~n~n" ++
-         "Example: rebar3 grisp-io delete~n"}
+         "Example: rebar3 grisp-io delete " ++
+         "grisp2.my_app.1.0.0.tar~n"}
     ]),
     {ok, rebar_state:add_provider(State, Provider)}.
 
@@ -42,11 +43,9 @@ init(State) ->
 do(RState) ->
     {ok, _} = application:ensure_all_started(rebar3_grisp_io),
     try
-        {Args, _} = rebar_state:command_parsed_args(RState),
-        RelNameArg = proplists:get_value(relname, Args, undefined),
-        RelVsnArg = proplists:get_value(relvsn, Args, undefined),
-        {RelName, RelVsn}
-            = rebar3_grisp_util:select_release(RState, RelNameArg, RelVsnArg),
+        {Args, _ExtraArgs} = rebar_state:command_parsed_args(RState),
+        PackageName = package_name(RState, Args,
+                                   rebar_state:command_args(RState)),
 
         Config = rebar3_grisp_io_config:read_config(RState),
         EncryptedToken = maps:get(encrypted_token, Config),
@@ -54,8 +53,6 @@ do(RState) ->
         Token = rebar3_grisp_io_config:try_decrypt_token(Password,
                                                         EncryptedToken),
 
-        PackageName = rebar3_grisp_util:update_file_name(RState, RelName,
-                                                                 RelVsn),
         rebar3_grisp_io_api:delete_package(RState, Token, PackageName),
 
         success(iolist_to_binary(["Package ", PackageName,
@@ -82,7 +79,9 @@ do(RState) ->
         throw:forbidden ->
             abort("Error: No permission to perform this operation");
         throw:device_does_not_exist->
-            abort("Error: The given board doesn't exists or isn't linked")
+            abort("Error: The given board doesn't exists or isn't linked");
+        throw:too_many_package_names ->
+            abort("Error: Specify only one package name")
     end.
 
 -spec format_error(any()) ->  iolist().
@@ -90,3 +89,14 @@ format_error(Reason) ->
     io_lib:format("~p", [Reason]).
 
 %--- Internals -----------------------------------------------------------------
+
+package_name(_RState, _Args, [PackageName]) ->
+    rebar_utils:to_binary(PackageName);
+package_name(RState, Args, []) ->
+    RelNameArg = proplists:get_value(relname, Args, undefined),
+    RelVsnArg = proplists:get_value(relvsn, Args, undefined),
+    {RelName, RelVsn} =
+        rebar3_grisp_util:select_release(RState, RelNameArg, RelVsnArg),
+    rebar3_grisp_util:update_file_name(RState, RelName, RelVsn);
+package_name(_RState, _Args, _PackageNames) ->
+    throw(too_many_package_names).

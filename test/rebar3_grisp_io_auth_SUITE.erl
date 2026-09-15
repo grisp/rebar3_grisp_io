@@ -27,15 +27,21 @@ all() -> [
 ].
 
 init_per_suite(Config) ->
-    Config1 = rebar3_grisp_io_common_test:init_per_suite(Config),
-    rebar3_grisp_io_common_test:init_backend(Config1).
+    rebar3_grisp_io_common_test:init_per_suite(Config).
 
 end_per_suite(Config) ->
     rebar3_grisp_io_common_test:end_per_suite(Config).
 
 init_per_testcase(_, Config) ->
+    Username = ?config(ci_username, Config),
+    Password = ?config(ci_password, Config),
+    LocalPassword = ?config(local_password, Config),
     ok = meck:new(rebar3_grisp_io_io, [no_link]),
-    ok = meck:expect(rebar3_grisp_io_io, ask, fun fake_ask/2),
+    ok = meck:expect(rebar3_grisp_io_io, ask,
+                     fun(Prompt, Type) ->
+                         fake_ask(Prompt, Type, Username, Password,
+                                  LocalPassword)
+                     end),
     ok = meck:expect(rebar3_grisp_io_io, abort, 2, fun (Msg, Args) -> ct:fail(Msg, Args) end),
     ok = meck:expect(rebar3_grisp_io_io, abort, 1, fun (Msg) -> ct:fail(Msg) end),
     ok = meck:expect(rebar3_grisp_io_io, success, 1, fun (_) -> ok end),
@@ -54,20 +60,24 @@ run_auth(Config) ->
     ?assertMatch({ok, _}, ProviderOutput),
     {ok, RState2} = ProviderOutput,
     GIOConfig = rebar3_grisp_io_config:read_config(RState2),
-    ?assertMatch(#{username := <<"Testuser">>,
-                   encrypted_token := _}, GIOConfig),
+    ?assertMatch(#{encrypted_token := _}, GIOConfig),
+    ?assertEqual(?config(ci_username, Config), maps:get(username, GIOConfig)),
     #{encrypted_token := EncryptedToken} = GIOConfig,
     ?assertThrow(wrong_local_password,
-        rebar3_grisp_io_config:try_decrypt_token(<<"1234">>, EncryptedToken)),
-    ?assertMatch(<<_/binary>>,
-        rebar3_grisp_io_config:try_decrypt_token(<<"azerty">>, EncryptedToken)).
+        rebar3_grisp_io_config:try_decrypt_token(<<"incorrect">>,
+                                                 EncryptedToken)),
+    Token = rebar3_grisp_io_config:try_decrypt_token(
+              ?config(local_password, Config), EncryptedToken),
+    ?assertMatch(<<_/binary>>, Token),
+    rebar3_grisp_io_test_utils:remember_token(
+      ?config(ci_username, Config), Token).
 
 %--- Internal ------------------------------------------------------------------
-fake_ask("Username", _) ->
-    <<"Testuser">>;
-fake_ask("Password", _) ->
-    <<"1234">>;
-fake_ask(Prompt, _) when
+fake_ask("Username", _, Username, _, _) ->
+    Username;
+fake_ask("Password", _, _, Password, _) ->
+    Password;
+fake_ask(Prompt, _, _, _, LocalPassword) when
       Prompt =:= "Local password" orelse
       Prompt =:= "Confirm your local password" ->
-    <<"azerty">>.
+    LocalPassword.

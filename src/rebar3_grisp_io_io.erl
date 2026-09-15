@@ -5,11 +5,8 @@
 -export([ask/2]).
 -export([console/1, console/2]).
 -export([error_message/1, error_message/2]).
+-export([spinner_start/0, spinner_stop/2]).
 -export([success/1, success/2]).
-
-%--- MACROS --------------------------------------------------------------------
-
--define(WHITESPACE, unicode_util:whitespace()).
 
 %--- Types ---------------------------------------------------------------------
 
@@ -41,6 +38,18 @@ error_message(Msg) ->
 error_message(Msg, Args) ->
     rebar_api:error(Msg, Args).
 
+spinner_start() ->
+    spawn_link(fun() -> spinner(0) end).
+
+spinner_stop(Pid, Status) ->
+    Ref = make_ref(),
+    Pid ! {done, self(), Ref, Status},
+    receive
+        {done, Pid, Ref} -> ok
+    after
+        1000 -> ok
+    end.
+
 success(Msg) ->
     success(Msg, []).
 success(Msg, Args) ->
@@ -48,6 +57,19 @@ success(Msg, Args) ->
     rebar_api:console(color(40, Text), []).
 
 %--- Internals -----------------------------------------------------------------
+
+spinner(Position) ->
+    Frames = "\\|/-",
+    Frame = lists:nth((Position rem length(Frames)) + 1, Frames),
+    io:fwrite(standard_error, "\rUploading ~c", [Frame]),
+    receive
+        {done, Parent, Ref, Status} ->
+            io:fwrite(standard_error, "\rUploading ~s~n",
+                      [atom_to_list(Status)]),
+            Parent ! {done, self(), Ref}
+    after
+        100 -> spinner(Position + 1)
+    end.
 
 -spec do_ask(Prompt, Type) -> UserInput | no_return() when
       Type      :: input_type(),
@@ -109,7 +131,7 @@ get(Type, String) when Type =:= string orelse Type =:= password ->
         [] ->
             {error, no_data};
         _ when is_list(String) ->
-            Trimmed = string:trim(String, both, ?WHITESPACE),
+            Trimmed = string:trim(String),
             {ok, unicode:characters_to_binary(Trimmed)};
         _ ->
             {error, wrong_data_type}
