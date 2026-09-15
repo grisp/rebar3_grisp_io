@@ -2,6 +2,8 @@
 
 % Callbacks
 -export([all/0]).
+-export([init_per_suite/1]).
+-export([end_per_suite/1]).
 -export([init_per_testcase/2]).
 -export([end_per_testcase/2]).
 
@@ -20,6 +22,12 @@
 %--- Callbacks -----------------------------------------------------------------
 
 all() -> [list_packages, list_no_packages].
+
+init_per_suite(Config) ->
+    rebar3_grisp_io_common_test:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    rebar3_grisp_io_common_test:end_per_suite(Config).
 
 init_per_testcase(_, Config) ->
     Parent = self(),

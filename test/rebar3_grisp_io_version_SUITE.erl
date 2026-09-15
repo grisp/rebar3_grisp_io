@@ -27,27 +27,37 @@ all() -> [
 ].
 
 init_per_suite(Config) ->
+    Config1 = rebar3_grisp_io_common_test:init_per_suite(Config),
     {ok, _} = application:ensure_all_started(rebar3_grisp_io),
     {ok, Release} = application:get_key(rebar3_grisp_io, vsn),
-    [{release, Release} | Config].
+    [{release, Release} | Config1].
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config) ->
+    rebar3_grisp_io_common_test:end_per_suite(Config).
 
 init_per_testcase(_, Config) ->
-    rebar3_grisp_io_test_utils:setup_capture_output(),
+    Parent = self(),
+    ok = meck:new(rebar3_grisp_io_io, [no_link, passthrough]),
+    ok = meck:expect(rebar3_grisp_io_io, console,
+                     fun(Format, Args) ->
+                         Parent ! {console, Format, Args},
+                         ok
+                     end),
     Config.
 
 end_per_testcase(_, _Config) ->
-    ok.
+    meck:unload().
 
 %--- Testcases -----------------------------------------------------------------
 
 run_version_command(Config) ->
     ProvOutput = rebar3_grisp_io_test_utils:run_grisp_io_command(?PROV, []),
     ?assertMatch({ok, _}, ProvOutput),
-    ExpectedOutput = "rebar3_grisp_io: " ++ ?config(release, Config) ++"\n",
-    Output = rebar3_grisp_io_test_utils:fetch_all_io_outputs(),
-    ?assertEqual(ExpectedOutput, lists:last(Output)).
+    receive
+        {console, "rebar3_grisp_io: ~s", [Version]} ->
+            ?assertEqual(?config(release, Config), Version)
+    after 1000 ->
+        ct:fail(version_output_not_received)
+    end.
 
 %--- Internal ------------------------------------------------------------------

@@ -9,6 +9,10 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: rebar3-grisp-io-saas-tests
+  cancel-in-progress: false
+
 jobs:
   ci:
     runs-on: ubuntu-24.04
@@ -16,6 +20,7 @@ jobs:
     permissions:
       contents: read
     strategy:
+      max-parallel: 1
       matrix:
         otp: ['28', '29']
         rebar3: ['3']
@@ -43,6 +48,10 @@ jobs:
           rebar3 dialyzer
 
       - name: Common test
+        env:
+          GRISP_CI_DEVICE: ${{ secrets.GRISP_CI_DEVICE }}
+          GRISP_CI_PASSWORD: ${{ secrets.GRISP_CI_PASSWORD }}
+          GRISP_CI_USERNAME: ${{ secrets.GRISP_CI_USERNAME }}
         run: |
           eval `ssh-agent -s`
           ssh-add - <<< '${{ secrets.STRITZINGER_BOT_SSH_KEY }}'

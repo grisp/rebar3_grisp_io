@@ -26,8 +26,8 @@ all() -> [
 init_per_suite(Config) ->
     rebar3_grisp_io_common_test:init_per_suite(Config).
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config) ->
+    rebar3_grisp_io_common_test:end_per_suite(Config).
 
 init_per_testcase(_, Config) ->
     Token = <<"abcdefghijklmnop">>,
