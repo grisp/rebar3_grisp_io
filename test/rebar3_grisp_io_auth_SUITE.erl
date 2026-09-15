@@ -18,7 +18,8 @@
 
 %--- Macros --------------------------------------------------------------------
 
--define(PROV, rebar3_grisp_io_auth).
+-define(AUTH_PROV, rebar3_grisp_io_auth).
+-define(DEAUTH_PROV, rebar3_grisp_io_deauth).
 
 %--- Callbacks -----------------------------------------------------------------
 
@@ -55,7 +56,7 @@ end_per_testcase(_, _Config) ->
 run_auth(Config) ->
     RState = ?config(rebar_state, Config),
     ProviderOutput = rebar3_grisp_io_test_utils:run_grisp_io_command(RState,
-                                                                     ?PROV,
+                                                                     ?AUTH_PROV,
                                                                      []),
     ?assertMatch({ok, _}, ProviderOutput),
     {ok, RState2} = ProviderOutput,
@@ -69,8 +70,18 @@ run_auth(Config) ->
     Token = rebar3_grisp_io_config:try_decrypt_token(
               ?config(local_password, Config), EncryptedToken),
     ?assertMatch(<<_/binary>>, Token),
+    %% Cache the token before testing deauth so suite teardown can revoke it
+    %% if any subsequent assertion fails.
     rebar3_grisp_io_test_utils:remember_token(
-      ?config(ci_username, Config), Token).
+      ?config(ci_username, Config), Token),
+    ?assertMatch(
+       {ok, _},
+       rebar3_grisp_io_test_utils:run_grisp_io_command(RState2,
+                                                        ?DEAUTH_PROV,
+                                                        [])),
+    ?assertThrow(enoent, rebar3_grisp_io_config:read_config(RState2)),
+    ?assertThrow(wrong_credentials,
+                 rebar3_grisp_io_api:list_packages(RState2, Token)).
 
 %--- Internal ------------------------------------------------------------------
 fake_ask("Username", _, Username, _, _) ->

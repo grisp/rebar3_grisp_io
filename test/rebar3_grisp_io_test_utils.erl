@@ -7,6 +7,7 @@
 -export([auth_user/4]).
 -export([remember_token/2]).
 -export([token/1]).
+-export([deauth_user/1]).
 -export([upload_test_package/1]).
 -export([delete_test_package/1]).
 -export([test_package_name/0]).
@@ -24,7 +25,11 @@ run_grisp_io_command(Provider, Args) ->
 
 run_grisp_io_command(RState, Provider, Args) ->
     {ok, RState1} = Provider:init(RState),
-    [ProviderT] = rebar_state:providers(RState1),
+    ProviderT = case lists:keyfind(Provider, 3,
+                                   rebar_state:providers(RState1)) of
+        false -> error({provider_not_registered, Provider});
+        RegisteredProvider -> RegisteredProvider
+    end,
     Command = element(2, ProviderT),
     RState2 = rebar_state:command_args(RState1, Args),
     RState3 = rebar_state:namespace(RState2, ?NAMESPACE),
@@ -60,6 +65,23 @@ token(Config) ->
         rebar3_grisp_io_config:read_config(RState),
     rebar3_grisp_io_config:try_decrypt_token(
         ?config(local_password, Config), EncryptedToken).
+
+deauth_user(Config) ->
+    Username = ?config(ci_username, Config),
+    Key = token_key(Username),
+    case persistent_term:get(Key, undefined) of
+        undefined ->
+            ok;
+        Token ->
+            try
+                rebar3_grisp_io_api:deauth(?config(rebar_state, Config), Token)
+            catch
+                %% The deauth command may already have revoked this token.
+                throw:wrong_credentials -> ok
+            after
+                persistent_term:erase(Key)
+            end
+    end.
 
 upload_test_package(Config) ->
     RState = ?config(rebar_state, Config),
