@@ -44,14 +44,7 @@ do(RState) ->
         {Args, _} = rebar_state:command_parsed_args(RState),
         RelNameArg = proplists:get_value(relname, Args, undefined),
         RelVsnArg = proplists:get_value(relvsn, Args, undefined),
-        Device = try try_get_device_serial(Args) of
-            DeviceStr ->
-                _ = list_to_integer(DeviceStr),
-                list_to_binary(DeviceStr)
-        catch
-            exit:badarg ->
-                throw(invalid_device_serial_number)
-        end,
+        Device = unicode:characters_to_binary(try_get_device_serial(Args)),
 
         {RelName, RelVsn}
             = rebar3_grisp_util:select_release(RState, RelNameArg, RelVsnArg),
@@ -76,8 +69,6 @@ do(RState) ->
         throw:no_device_serial_number ->
             abort("Error: The serial number of the target device is missing." ++
                   " Specify it with -d or --device");
-        throw:invalid_device_serial_number ->
-            abort("Error: The serial number of the target device is invalid.");
         throw:wrong_local_password ->
             abort("Wrong local password. Try again");
         throw:wrong_credentials ->
@@ -86,6 +77,9 @@ do(RState) ->
             abort("Error: No permission to perform this operation");
         throw:{error, Reason} ->
             abort("Error: deployment request rejected: ~s", [Reason]);
+        throw:{device_does_not_exist, MissingDevice} ->
+            abort("Error: Device ~s is not linked for the configured platform",
+                  [MissingDevice]);
         throw:{package_does_not_exist, Name} ->
             abort("Error: The package ~s doesn't exists. Use the upload " ++
                   "command first to upload an update package to grisp.io",

@@ -175,7 +175,14 @@ deploy_update(RState, Token, PackageName, Device) ->
         {ok, 401, _, _} ->
             throw(wrong_credentials);
         {ok, 404, _, _} ->
-            throw({package_does_not_exist, PackageName});
+            case lists:any(
+                   fun(#{<<"name">> := Name}) -> Name =:= PackageName;
+                      (_) -> false
+                   end,
+                   list_packages(RState, Token)) of
+                true -> throw({device_does_not_exist, Device});
+                false -> throw({package_does_not_exist, PackageName})
+            end;
         Other ->
             error({error, Other})
     end.
@@ -236,12 +243,10 @@ base_url(RState) ->
 
 %% @doc adds the insecure options in the current profile is test (only for dev)
 insecure_option(RState) ->
-    Profiles = rebar_state:current_profiles(RState),
-    case lists:member(test, Profiles) of
-        true ->
-            [insecure];
-        _ ->
-            []
+    Options = rebar_state:get(RState, rebar3_grisp_io, []),
+    case proplists:get_bool(insecure, Options) of
+        true -> [{ssl_options, [{insecure, true}]}, insecure];
+        false -> []
     end.
 
 %% @doc Build the header "if-none-match" if force is false
