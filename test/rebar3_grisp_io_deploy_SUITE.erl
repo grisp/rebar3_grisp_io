@@ -35,14 +35,18 @@ init_per_suite(Config) ->
     Config1.
 
 end_per_suite(Config) ->
-    try rebar3_grisp_io_test_utils:delete_test_package(Config)
+    RState = ?config(rebar_state, Config),
+    Token = rebar3_grisp_io_test_utils:token(Config),
+    Device = ?config(ci_device, Config),
+    try
+        ok = rebar3_grisp_io_api:cancel_update(RState, Token, Device)
     after
+        rebar3_grisp_io_test_utils:delete_test_package(Config),
         rebar3_grisp_io_common_test:end_per_suite(Config)
     end.
 
 init_per_testcase(_, Config) ->
     setup_meck_io(),
-    setup_meck_gio_utils(),
     Config.
 
 end_per_testcase(_, _Config) ->
@@ -87,10 +91,6 @@ setup_meck_io() ->
                              end
                      end),
     ok = meck:expect(rebar3_grisp_io_io, success, 2, fun (_, _) -> ok end).
-
-setup_meck_gio_utils() ->
-    ok = meck:new(rebar3_grisp_io_utils, [no_link, passthrough]),
-    ok = meck:expect(rebar3_grisp_io_utils, grisp_pack, fun(RState, _, _) -> {ok, RState} end).
 
 fake_ask("Local password", _) ->
     <<"grisp-ci-local-password">>.

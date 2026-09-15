@@ -13,6 +13,7 @@
 
 %--- Includes ------------------------------------------------------------------
 
+-include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 %--- Macros --------------------------------------------------------------------
@@ -24,16 +25,21 @@
 all() -> [delete_named_package, delete_current_package].
 
 init_per_suite(Config) ->
-    rebar3_grisp_io_common_test:init_per_suite(Config).
+    Config1 = rebar3_grisp_io_common_test:init_per_suite(Config),
+    rebar3_grisp_io_test_utils:auth_user(Config1),
+    Config1.
 
 end_per_suite(Config) ->
     rebar3_grisp_io_common_test:end_per_suite(Config).
 
 init_per_testcase(_, Config) ->
+    ok = rebar3_grisp_io_test_utils:upload_test_package(Config),
     Parent = self(),
     ok = meck:new(rebar3_grisp_io_io, [no_link]),
     ok = meck:expect(rebar3_grisp_io_io, ask,
-                     fun("Local password", password) -> <<"password">> end),
+                     fun("Local password", password) ->
+                         ?config(local_password, Config)
+                     end),
     ok = meck:expect(rebar3_grisp_io_io, success,
                      fun(Message) ->
                          Parent ! {success, Message},
@@ -41,52 +47,36 @@ init_per_testcase(_, Config) ->
                      end),
     ok = meck:expect(rebar3_grisp_io_io, abort,
                      fun(Message) -> error({unexpected_abort, Message}) end),
-    ok = meck:new(rebar3_grisp_io_config, [no_link, passthrough]),
-    ok = meck:expect(rebar3_grisp_io_config, read_config,
-                     fun(_) -> #{encrypted_token => <<"encrypted">>} end),
-    ok = meck:expect(rebar3_grisp_io_config, try_decrypt_token,
-                     fun(_, _) -> <<"token">> end),
-    ok = meck:new(rebar3_grisp_io_api, [no_link, passthrough]),
-    ok = meck:expect(rebar3_grisp_io_api, delete_package,
-                     fun(_, <<"token">>, PackageName) ->
-                         Parent ! {deleted, PackageName},
-                         ok
-                     end),
     Config.
 
-end_per_testcase(_, _Config) ->
-    meck:unload().
+end_per_testcase(_, Config) ->
+    meck:unload(),
+    rebar3_grisp_io_test_utils:delete_test_package(Config).
 
 %--- Test cases ----------------------------------------------------------------
 
-delete_named_package(_Config) ->
-    PackageName = "kontron-albl-imx8mm.grisp_runtime.0.2.0.tar",
+delete_named_package(Config) ->
+    PackageName = rebar3_grisp_io_test_utils:test_package_name(),
+    RState = ?config(rebar_state, Config),
     ?assertMatch({ok, _},
                  rebar3_grisp_io_test_utils:run_grisp_io_command(
-                     ?PROV, [PackageName])),
-    ?assertEqual({deleted, list_to_binary(PackageName)}, receive_message()).
+                   RState, ?PROV, [binary_to_list(PackageName)])),
+    ?assertNot(package_exists(Config, PackageName)).
 
-delete_current_package(_Config) ->
-    Parent = self(),
-    ok = meck:new(rebar3_grisp_util, [no_link, passthrough]),
-    ok = meck:expect(rebar3_grisp_util, select_release,
-                     fun(_, undefined, undefined) -> {myapp, <<"0.1.0">>} end),
-    ok = meck:expect(rebar3_grisp_util, update_file_name,
-                     fun(_, myapp, <<"0.1.0">>) ->
-                         PackageName = <<"grisp2.myapp.0.1.0.tar">>,
-                         Parent ! {selected, PackageName},
-                         PackageName
-                     end),
+delete_current_package(Config) ->
+    RState = ?config(rebar_state, Config),
+    PackageName = rebar3_grisp_io_test_utils:test_package_name(),
     ?assertMatch({ok, _},
-                 rebar3_grisp_io_test_utils:run_grisp_io_command(?PROV, [])),
-    ?assertEqual({selected, <<"grisp2.myapp.0.1.0.tar">>}, receive_message()),
-    ?assertEqual({deleted, <<"grisp2.myapp.0.1.0.tar">>}, receive_message()).
+                 rebar3_grisp_io_test_utils:run_grisp_io_command(
+                   RState, ?PROV, [])),
+    ?assertNot(package_exists(Config, PackageName)).
 
 %--- Internals -----------------------------------------------------------------
 
-receive_message() ->
-    receive
-        Message -> Message
-    after
-        1000 -> error(timeout)
-    end.
+package_exists(Config, PackageName) ->
+    Packages = rebar3_grisp_io_api:list_packages(
+                 ?config(rebar_state, Config),
+                 rebar3_grisp_io_test_utils:token(Config)),
+    lists:any(fun(#{<<"name">> := Name}) -> Name =:= PackageName;
+                 (_) -> false
+              end, Packages).

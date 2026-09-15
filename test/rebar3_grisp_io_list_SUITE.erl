@@ -13,6 +13,7 @@
 
 %--- Includes ------------------------------------------------------------------
 
+-include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 %--- Macros --------------------------------------------------------------------
@@ -24,67 +25,69 @@
 all() -> [list_packages, list_no_packages].
 
 init_per_suite(Config) ->
-    rebar3_grisp_io_common_test:init_per_suite(Config).
+    Config1 = rebar3_grisp_io_common_test:init_per_suite(Config),
+    rebar3_grisp_io_test_utils:auth_user(Config1),
+    Config1.
 
 end_per_suite(Config) ->
-    rebar3_grisp_io_common_test:end_per_suite(Config).
+    try rebar3_grisp_io_test_utils:delete_test_package(Config)
+    after
+        rebar3_grisp_io_common_test:end_per_suite(Config)
+    end.
 
-init_per_testcase(_, Config) ->
+init_per_testcase(list_packages, Config) ->
+    ok = rebar3_grisp_io_test_utils:upload_test_package(Config),
+    setup_io_mock(Config),
+    Config;
+init_per_testcase(list_no_packages, Config) ->
+    ok = rebar3_grisp_io_test_utils:delete_test_package(Config),
+    setup_io_mock(Config),
+    Config.
+
+setup_io_mock(Config) ->
     Parent = self(),
     ok = meck:new(rebar3_grisp_io_io, [no_link]),
     ok = meck:expect(rebar3_grisp_io_io, ask,
-                     fun("Local password", password) -> <<"password">> end),
+                     fun("Local password", password) ->
+                         ?config(local_password, Config)
+                     end),
     ok = meck:expect(rebar3_grisp_io_io, console,
                      fun(Format, Args) ->
                          Parent ! {console, Format, Args},
                          ok
                      end),
     ok = meck:expect(rebar3_grisp_io_io, abort,
-                     fun(Message) -> error({unexpected_abort, Message}) end),
-    ok = meck:new(rebar3_grisp_io_config, [no_link, passthrough]),
-    ok = meck:expect(rebar3_grisp_io_config, read_config,
-                     fun(_) -> #{encrypted_token => <<"encrypted">>} end),
-    ok = meck:expect(rebar3_grisp_io_config, try_decrypt_token,
-                     fun(_, _) -> <<"token">> end),
-    ok = meck:new(rebar3_grisp_io_api, [no_link, passthrough]),
-    Config.
+                     fun(Message) -> error({unexpected_abort, Message}) end).
 
 end_per_testcase(_, _Config) ->
     meck:unload().
 
 %--- Test cases ----------------------------------------------------------------
 
-list_packages(_Config) ->
-    Packages = [
-        package(<<"grisp2.zeta.2.0.0.tar">>, <<"zeta">>, <<"2.0.0">>),
-        package(<<"grisp2.alpha.1.0.0.tar">>, <<"alpha">>, <<"1.0.0">>)
-    ],
-    ok = meck:expect(rebar3_grisp_io_api, list_packages,
-                     fun(_, <<"token">>) -> Packages end),
+list_packages(Config) ->
+    RState = ?config(rebar_state, Config),
+    Packages = rebar3_grisp_io_api:list_packages(
+                 RState, rebar3_grisp_io_test_utils:token(Config)),
     ?assertMatch({ok, _},
-                 rebar3_grisp_io_test_utils:run_grisp_io_command(?PROV, [])),
-    ?assertEqual([
-        [<<"NAME">>, <<"APPLICATION">>, <<"VERSION">>, <<"PLATFORM">>,
-         <<"LAST MODIFIED">>],
-        package_values(lists:nth(2, Packages)),
-        package_values(lists:nth(1, Packages))
-    ], console_rows()).
+                 rebar3_grisp_io_test_utils:run_grisp_io_command(
+                   RState, ?PROV, [])),
+    Sorted = lists:sort(
+               fun(A, B) -> maps:get(<<"name">>, A) =<
+                            maps:get(<<"name">>, B)
+               end, Packages),
+    ExpectedRows = [[<<"NAME">>, <<"APPLICATION">>, <<"VERSION">>,
+                     <<"PLATFORM">>, <<"LAST MODIFIED">>]
+                    | lists:map(fun package_values/1, Sorted)],
+    ?assertEqual(ExpectedRows, console_rows()).
 
-list_no_packages(_Config) ->
-    ok = meck:expect(rebar3_grisp_io_api, list_packages,
-                     fun(_, <<"token">>) -> [] end),
+list_no_packages(Config) ->
+    RState = ?config(rebar_state, Config),
     ?assertMatch({ok, _},
-                 rebar3_grisp_io_test_utils:run_grisp_io_command(?PROV, [])),
+                 rebar3_grisp_io_test_utils:run_grisp_io_command(
+                   RState, ?PROV, [])),
     ?assertEqual([[]], console_rows()).
 
 %--- Internals -----------------------------------------------------------------
-
-package(Name, App, Version) ->
-    #{<<"name">> => Name,
-      <<"app_name">> => App,
-      <<"version">> => Version,
-      <<"platform">> => <<"grisp2">>,
-      <<"last_modified">> => <<"2026-09-14T10:00:00Z">>}.
 
 package_values(Package) ->
     [maps:get(<<"name">>, Package),

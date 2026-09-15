@@ -9,6 +9,7 @@
 -export([token/1]).
 -export([upload_test_package/1]).
 -export([delete_test_package/1]).
+-export([test_package_name/0]).
 
 %--- Includes ------------------------------------------------------------------
 
