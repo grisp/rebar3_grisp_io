@@ -3,6 +3,7 @@
 % API
 -export([write_config/2]).
 -export([read_config/1]).
+-export([delete_config/1]).
 -export([encrypt_token/2]).
 -export([try_decrypt_token/2]).
 
@@ -56,6 +57,15 @@ read_config(State) ->
             throw(enoent);
         {error, Reason} ->
             error(Reason)
+    end.
+
+%% @doc Delete the locally stored authentication configuration.
+-spec delete_config(rebar_state:t()) -> ok | no_return().
+delete_config(State) ->
+    case file:delete(auth_config_file(State)) of
+        ok -> ok;
+        {error, enoent} -> ok;
+        {error, Reason} -> error(Reason)
     end.
 
 %% @doc encrypt the token provided in the args

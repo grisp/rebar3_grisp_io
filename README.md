@@ -13,6 +13,7 @@ rebar3 help grisp-io [<task>]
   - [Installation](#installation)
   - [Tasks](#tasks)
     - [Authentication](#authentication)
+    - [Deauthentication](#deauthentication)
     - [Deploy](#deploy)
     - [Upload](#upload)
     - [List](#list)
@@ -68,6 +69,20 @@ Local password > <LocalPassword>
 Confirm your local password > <LocalPassword> % Must be the same
 Token successfully requested
 ```
+
+---
+### Deauthentication
+
+This command revokes the currently stored API token and removes the local
+encrypted credentials:
+
+```shell
+rebar3 grisp-io deauth
+```
+
+Enter the local password used when authenticating. If the stored token has
+already expired or been revoked, the stale local credentials are still removed.
+
 ---
 ### Deploy
 
@@ -188,5 +203,5 @@ project's GRiSP configuration.
 rebar3 grisp-io version
 ===> Analyzing applications...
 ===> Compiling rebar3_grisp_io
-rebar3_grisp_io: 0.1.0
+rebar3_grisp_io: 1.0.0
 ```

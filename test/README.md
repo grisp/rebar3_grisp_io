@@ -21,7 +21,7 @@ implementation.
 
 | Command | Live behavior | Remaining mocks |
 |---|---|---|
-| `auth` | Requests a real Eresu token. | Interactive prompts and output are mocked so the suite can run unattended. |
+| `auth` / `deauth` | Requests a real Eresu token, revokes it through the command, and verifies that it can no longer authenticate. | Interactive prompts and output are mocked so the suite can run unattended. |
 | `upload` | Uploads and removes the fixture package using the configured account. | Interactive I/O is mocked, and `grisp_pack` is mocked so the checked-in fixture is used instead of building a package. |
 | `deploy` | Uploads the fixture and starts deployment for the configured device. Teardown calls `cancel_update/3` before deleting the package so no update process remains in the backend. | Interactive prompts and output are mocked. |
 | `list` | Lists packages in the configured account, including an uploaded fixture and the empty state after cleanup. | Interactive prompts and output are mocked. |
@@ -30,7 +30,9 @@ implementation.
 
 Live suites require `GRISP_CI_USERNAME`, `GRISP_CI_PASSWORD`, and
 `GRISP_CI_DEVICE`. The configured device must be linked to that account for the
-project platform. Never store those credentials in a tracked script or fixture.
+project platform. Each live suite revokes its authentication token during
+teardown so repeated test runs do not consume the account's token quota. Never
+store those credentials in a tracked script or fixture.
 
 ## Running mocked suites
 

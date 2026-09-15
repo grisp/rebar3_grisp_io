@@ -2,6 +2,7 @@
 
 % API
 -export([auth/3]).
+-export([deauth/2]).
 -export([list_packages/2]).
 -export([update_package/5]).
 -export([delete_package/3]).
@@ -38,6 +39,27 @@ auth(RState, Username, Password) ->
             throw(wrong_credentials);
         {ok, 403, _, _} ->
             throw(token_limit_reached);
+        Other ->
+            error({error, Other})
+    end.
+
+%% @doc Revoke the bearer token used to authenticate the request.
+-spec deauth(RState, Token) -> ok | no_return() when
+      RState :: rebar_state:t(),
+      Token  :: rebar3_grisp_io_config:clear_token().
+deauth(RState, Token) ->
+    BaseUrl = base_url(RState),
+    Url = <<BaseUrl/binary, "/eresu/api/deauth">>,
+    Body = <<"{}">>,
+    Headers = [{<<"authorization">>, bearer_token(Token)},
+               {<<"content-type">>, <<"application/json">>},
+               {<<"content-length">>, integer_to_binary(byte_size(Body))}],
+    Options = [with_body | insecure_option(RState)],
+    case hackney:request(post, Url, Headers, Body, Options) of
+        {ok, 200, _, _} ->
+            ok;
+        {ok, 401, _, _} ->
+            throw(wrong_credentials);
         Other ->
             error({error, Other})
     end.
@@ -288,7 +310,8 @@ reboot_device(RState, Token, Device) ->
 
 %--- Internal ------------------------------------------------------------------
 %% @private
-%% @doc Create the Authorisation header <<"Basic Username:Password">>
+%% @doc Create the Authorisation header
+%% `&lt;&lt;"Basic Username:Password"&gt;&gt;'.
 basic_auth(Username, Password) ->
     AuthContent = base64:encode(<<Username/binary, ":", Password/binary>>),
     <<"Basic ", AuthContent/binary>>.
@@ -316,7 +339,7 @@ insecure_option(RState) ->
     end.
 
 %% @doc Build the header "if-none-match" if force is false
-%% The Etag format must be: <<"\"...\"">>
+%% The Etag format must be: `&lt;&lt;"\"...\""&gt;&gt;'.
 -spec if_none_match(Force, Etag) -> Result when
       Force  :: boolean(),
       Etag   :: binary(),

@@ -24,8 +24,8 @@ init_per_suite(Config) ->
      {ci_device, Device},
      {local_password, <<"grisp-ci-local-password">>} | Config].
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config) ->
+    rebar3_grisp_io_test_utils:deauth_user(Config).
 
 %--- Internals -----------------------------------------------------------------
 
