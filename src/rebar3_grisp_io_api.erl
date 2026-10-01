@@ -2,6 +2,7 @@
 
 % API
 -export([auth/3]).
+-export([cli_session/4, cli_redeem/4]).
 -export([deauth/2]).
 -export([list_packages/2]).
 -export([update_package/5]).
@@ -15,6 +16,21 @@
 
 
 %--- API -----------------------------------------------------------------------
+%% @doc Create a CLI session with an S256 challenge and loopback callback port.
+-spec cli_session(rebar_state:t(), binary(), binary(), inet:port_number()) -> map().
+cli_session(RState, Challenge, Nonce, Port) ->
+    cli_request(RState, <<"/eresu/api/cli_session">>,
+                #{code_challenge => Challenge, nonce => Nonce,
+                  redirect_port => Port}, 201).
+
+%% @doc Redeem the approved code using the original PKCE verifier.
+-spec cli_redeem(rebar_state:t(), binary(), binary(), binary()) -> binary().
+cli_redeem(RState, SessionId, Code, Verifier) ->
+    #{<<"access_token">> := Token} = cli_request(
+        RState, <<"/eresu/api/cli_redeem">>,
+        #{session_id => SessionId, code => Code, code_verifier => Verifier}, 200),
+    Token.
+
 %% @doc Performs a POST request to /eresu/api/auth using the credentials given
 -spec auth(RState, Username, Password) -> Result when
       RState   :: rebar_state:t(),
@@ -309,6 +325,23 @@ reboot_device(RState, Token, Device) ->
     end.
 
 %--- Internal ------------------------------------------------------------------
+cli_request(RState, Path, Payload, ExpectedStatus) ->
+    BaseUrl = rebar_utils:to_binary(base_url(RState)),
+    Url = <<BaseUrl/binary, Path/binary>>,
+    Body = jsx:encode(Payload),
+    Headers = [{<<"content-type">>, <<"application/json">>},
+               {<<"content-length">>, integer_to_binary(byte_size(Body))}],
+    Options = [with_body, {connect_timeout, 10000}, {recv_timeout, 10000}
+               | insecure_option(RState)],
+    case hackney:request(post, Url, Headers, Body, Options) of
+        {ok, ExpectedStatus, _, Response} ->
+            jsx:decode(Response, [return_maps]);
+        {ok, Status, _, Response} ->
+            throw({cli_api_error, Status, Response});
+        {error, Reason} ->
+            throw({cli_request_failed, Reason})
+    end.
+
 %% @private
 %% @doc Create the Authorisation header
 %% `&lt;&lt;"Basic Username:Password"&gt;&gt;'.
@@ -333,9 +366,14 @@ base_url(RState) ->
 %% @doc adds the insecure options in the current profile is test (only for dev)
 insecure_option(RState) ->
     Options = rebar_state:get(RState, rebar3_grisp_io, []),
+    TlsOptions = case proplists:get_value(cacertfile, Options) of
+        undefined -> [];
+        CAFile -> [{cacertfile, CAFile}]
+    end,
     case proplists:get_bool(insecure, Options) of
-        true -> [{ssl_options, [{insecure, true}]}, insecure];
-        false -> []
+        true -> [{ssl_options, [{insecure, true} | TlsOptions]}, insecure];
+        false when TlsOptions =:= [] -> [];
+        false -> [{ssl_options, TlsOptions}]
     end.
 
 %% @doc Build the header "if-none-match" if force is false

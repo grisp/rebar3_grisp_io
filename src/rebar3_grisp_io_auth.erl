@@ -44,7 +44,7 @@ do(RState) ->
         {Args, _} = rebar_state:command_parsed_args(RState),
         case proplists:get_value(credentials, Args, false) of
             true -> auth_credentials(RState, Args);
-            false -> auth_pkce()
+            false -> auth_pkce(RState, Args)
         end,
         {ok, RState}
     catch
@@ -58,7 +58,17 @@ do(RState) ->
         throw:not_matching ->
             abort("Error: The 2 local password entries don't match");
         throw:invalid_encrypt_token_choice ->
-            abort("Error: --encrypt-token must be true or false")
+            abort("Error: --encrypt-token must be true or false");
+        throw:cli_login_timeout ->
+            abort("Error: CLI login expired. Run auth again");
+        throw:{cli_listener_failed, Reason} ->
+            abort("Error: Cannot start the local login listener: ~p", [Reason]);
+        throw:{cli_browser_failed, Reason} ->
+            abort("Error: Cannot open the browser: ~p", [Reason]);
+        throw:{cli_api_error, Status, Body} ->
+            abort("Error: CLI login API returned HTTP ~B: ~s", [Status, Body]);
+        throw:{cli_request_failed, Reason} ->
+            abort("Error: CLI login request failed: ~p", [Reason])
     end.
 
 -spec format_error(any()) ->  iolist().
@@ -77,13 +87,17 @@ auth_credentials(RState, Args) ->
     Username = ask("Username", string),
     Password = ask("Password", password),
     Token = rebar3_grisp_io_api:auth(RState, Username, Password),
+    store_token(RState, Args, Token, #{username => Username}).
+
+auth_pkce(RState, Args) ->
+    Token = rebar3_grisp_io_pkce:auth(RState),
+    store_token(RState, Args, Token, #{}).
+
+store_token(RState, Args, Token, Metadata) ->
     EncryptToken = encryption_choice(proplists:get_value(encrypt_token, Args)),
-    Config = save_config(EncryptToken, Username, Token),
+    Config = maps:merge(save_config(EncryptToken, Token), Metadata),
     rebar3_grisp_io_config:write_config(RState, Config),
     success("Token successfully requested").
-
-auth_pkce() ->
-    console("PKCE login flow is not implemented yet").
 
 encryption_choice(undefined) ->
     ask_encryption_choice();
@@ -106,13 +120,13 @@ ask_encryption_choice() ->
             ask_encryption_choice()
     end.
 
-save_config(true, Username, Token) ->
+save_config(true, Token) ->
     success("Please provide a local password to encrypt the token"),
     LocalPassword = ask_local_password(),
     EncToken = rebar3_grisp_io_config:encrypt_token(LocalPassword, Token),
-    #{encrypted_token => EncToken, username => Username};
-save_config(false, Username, Token) ->
-    #{token => Token, username => Username}.
+    #{encrypted_token => EncToken};
+save_config(false, Token) ->
+    #{token => Token}.
 
 ask_local_password() ->
     LocalPassword = ask("Local password", password),

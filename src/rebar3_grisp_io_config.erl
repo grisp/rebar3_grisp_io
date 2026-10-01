@@ -27,10 +27,10 @@
                              tag => binary(),
                              encrypted_token => binary()}.
 
--type clear_token() :: <<_:_*128>>. % AES => data blocks of 16 bytes (128 bits).
--type config() :: #{username := binary(),
+-type clear_token() :: binary().
+-type config() :: #{username => binary(),
                     encrypted_token := encrypted_token()} |
-                  #{username := binary(), token := clear_token()}.
+                  #{username => binary(), token := clear_token()}.
 
 -export_type([encrypted_token/0, clear_token/0]).
 %--- API -----------------------------------------------------------------------
@@ -70,7 +70,6 @@ delete_config(State) ->
     end.
 
 %% @doc encrypt the token provided in the args
-%% Warning: the token must have a bytes size that is a multiple of 16
 -spec encrypt_token(binary(), clear_token()) -> encrypted_token().
 encrypt_token(LocalPassword, Token) ->
     PaddedPswd = password_padding(LocalPassword),
