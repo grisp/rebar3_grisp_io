@@ -6,6 +6,7 @@
 -export([delete_config/1]).
 -export([encrypt_token/2]).
 -export([try_decrypt_token/2]).
+-export([get_token/1]).
 
 %--- Includes ------------------------------------------------------------------
 
@@ -26,16 +27,16 @@
                              tag => binary(),
                              encrypted_token => binary()}.
 
--type config() :: #{username := binary(),
-                    encrypted_token := encrypted_token()}.
-
 -type clear_token() :: <<_:_*128>>. % AES => data blocks of 16 bytes (128 bits).
+-type config() :: #{username := binary(),
+                    encrypted_token := encrypted_token()} |
+                  #{username := binary(), token := clear_token()}.
 
 -export_type([encrypted_token/0, clear_token/0]).
 %--- API -----------------------------------------------------------------------
 
 %% @doc Write the new configuration stored
-%% Note: The token must be already encrypted in the Config map
+%% The Config map may contain either an encrypted_token or a clear token.
 -spec write_config(rebar_state:t(), config()) -> ok.
 write_config(State, Config) ->
     GIoConfigFile = auth_config_file(State),
@@ -46,7 +47,7 @@ write_config(State, Config) ->
 
 
 %% @doc Read the stored configuration file
-%% Note: The stored token stays encrypted in the Config map
+%% Reads either the encrypted or unencrypted token representation.
 -spec read_config(rebar_state:t()) -> config() | no_return().
 read_config(State) ->
     GIoConfigFile = auth_config_file(State),
@@ -90,6 +91,15 @@ try_decrypt_token(Password, EncryptedToken) ->
         T ->
             T
     end.
+
+
+%% Return a stored token, prompting for a password only for encrypted config.
+-spec get_token(config()) -> clear_token().
+get_token(#{token := Token}) ->
+    Token;
+get_token(#{encrypted_token := EncryptedToken}) ->
+    Password = rebar3_grisp_io_io:ask("Local password", password),
+    rebar3_grisp_io_config:try_decrypt_token(Password, EncryptedToken).
 %--- Internals -----------------------------------------------------------------
 %% @doc Decrypt the token present in Encrypted token
 -spec decrypt_token(binary(), encrypted_token()) -> clear_token() | error.

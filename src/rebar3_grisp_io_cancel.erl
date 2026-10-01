@@ -8,7 +8,7 @@
 %--- Includes ------------------------------------------------------------------
 
 -include("rebar3_grisp_io.hrl").
--import(rebar3_grisp_io_io, [abort/1, abort/2, ask/2, success/2]).
+-import(rebar3_grisp_io_io, [abort/1, abort/2, success/2]).
 
 %--- API -----------------------------------------------------------------------
 
@@ -34,10 +34,7 @@ do(RState) ->
         {Args, _} = rebar_state:command_parsed_args(RState),
         Device = unicode:characters_to_binary(try_get_device(Args)),
         Config = rebar3_grisp_io_config:read_config(RState),
-        EncryptedToken = maps:get(encrypted_token, Config),
-        Password = ask("Local password", password),
-        Token = rebar3_grisp_io_config:try_decrypt_token(Password,
-                                                        EncryptedToken),
+        Token = rebar3_grisp_io_config:get_token(Config),
         ok = rebar3_grisp_io_api:cancel_update(RState, Token, Device),
         success("Update cancellation requested for device #~s", [Device]),
         {ok, RState}

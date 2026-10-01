@@ -10,6 +10,7 @@
 
 % testcases
 -export([run_auth/1]).
+-export([run_auth_unencrypted/1]).
 
 %--- Include -------------------------------------------------------------------
 
@@ -24,7 +25,8 @@
 %--- Callbacks -----------------------------------------------------------------
 
 all() -> [
-    run_auth
+    run_auth,
+    run_auth_unencrypted
 ].
 
 init_per_suite(Config) ->
@@ -44,6 +46,11 @@ init_per_testcase(_, Config) ->
                                   LocalPassword)
                      end),
     ok = meck:expect(rebar3_grisp_io_io, abort, 2, fun (Msg, Args) -> ct:fail(Msg, Args) end),
+    ok = meck:expect(rebar3_grisp_io_io, ask,
+                     fun(Prompt, Type, _Default) ->
+                         fake_ask(Prompt, Type, Username, Password,
+                                  LocalPassword)
+                     end),
     ok = meck:expect(rebar3_grisp_io_io, abort, 1, fun (Msg) -> ct:fail(Msg) end),
     ok = meck:expect(rebar3_grisp_io_io, success, 1, fun (_) -> ok end),
     Config.
@@ -83,11 +90,36 @@ run_auth(Config) ->
     ?assertThrow(wrong_credentials,
                  rebar3_grisp_io_api:list_packages(RState2, Token)).
 
+run_auth_unencrypted(Config) ->
+    RState = ?config(rebar_state, Config),
+    ProviderOutput = rebar3_grisp_io_test_utils:run_grisp_io_command(
+                       RState, ?AUTH_PROV, ["--encrypt-token=false"]),
+    ?assertMatch({ok, _}, ProviderOutput),
+    {ok, RState2} = ProviderOutput,
+    GIOConfig = rebar3_grisp_io_config:read_config(RState2),
+    ?assertEqual(?config(ci_username, Config), maps:get(username, GIOConfig)),
+    ?assertMatch(#{token := _}, GIOConfig),
+    ?assertNot(maps:is_key(encrypted_token, GIOConfig)),
+    Token = maps:get(token, GIOConfig),
+    ?assertEqual(Token, rebar3_grisp_io_config:get_token(GIOConfig)),
+    rebar3_grisp_io_test_utils:remember_token(
+      ?config(ci_username, Config), Token),
+    ?assertMatch(
+       {ok, _},
+       rebar3_grisp_io_test_utils:run_grisp_io_command(RState2,
+                                                        ?DEAUTH_PROV,
+                                                        [])),
+    ?assertThrow(enoent, rebar3_grisp_io_config:read_config(RState2)),
+    ?assertThrow(wrong_credentials,
+                 rebar3_grisp_io_api:list_packages(RState2, Token)).
+
 %--- Internal ------------------------------------------------------------------
 fake_ask("Username", _, Username, _, _) ->
     Username;
 fake_ask("Password", _, _, Password, _) ->
     Password;
+fake_ask("Encrypt token locally? (y/N)", _, _, _, _) ->
+    "yes";
 fake_ask(Prompt, _, _, _, LocalPassword) when
       Prompt =:= "Local password" orelse
       Prompt =:= "Confirm your local password" ->

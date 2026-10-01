@@ -12,8 +12,10 @@
     abort/1,
     abort/2,
     ask/2,
+    ask/3,
     console/1,
     console/2,
+    error_message/1,
     success/1,
     success/2]).
 
@@ -27,7 +29,7 @@ init(State) ->
         {module, ?MODULE},
         {bare, true},
         {example, "rebar3 grisp_io auth"},
-        {opts, []},
+        {opts, options()},
         {profile, [default]},
         {short_desc, "Authenticate yourself to grisp.io"},
         {desc, "Authenticate yourself to your grisp.io account"}
@@ -39,16 +41,14 @@ init(State) ->
 do(RState) ->
     {ok, _} = application:ensure_all_started(rebar3_grisp_io),
     try
+        {Args, _} = rebar_state:command_parsed_args(RState),
+        EncryptTokenChoice = proplists:get_value(encrypt_token, Args),
         Username = ask("Username", string),
         Password = ask("Password", password),
 
         Token = rebar3_grisp_io_api:auth(RState, Username, Password),
-        success("Authentication successful - " ++
-                "Please provide new local password"),
-        LocalPassword = ask_local_password(),
-        EncToken = rebar3_grisp_io_config:encrypt_token(LocalPassword, Token),
-        Config = #{encrypted_token => EncToken,
-                   username => Username},
+        EncryptToken = encryption_choice(EncryptTokenChoice),
+        Config = save_config(EncryptToken, Username, Token),
 
         rebar3_grisp_io_config:write_config(RState, Config),
 
@@ -64,7 +64,9 @@ do(RState) ->
         throw:forbidden ->
             abort("Error: No permission to perform this operation");
         throw:not_matching ->
-            abort("Error: The 2 local password entries don't match")
+            abort("Error: The 2 local password entries don't match");
+        throw:invalid_encrypt_token_choice ->
+            abort("Error: --encrypt-token must be true or false")
     end.
 
 -spec format_error(any()) ->  iolist().
@@ -72,6 +74,40 @@ format_error(Reason) ->
     io_lib:format("~p", [Reason]).
 
 %--- Internals -----------------------------------------------------------------
+options() -> [
+    {encrypt_token, undefined, "encrypt-token", string,
+     "Encrypt the saved token (true or false); omit to choose interactively"}
+].
+
+encryption_choice(undefined) ->
+    ask_encryption_choice();
+encryption_choice("true") -> true;
+encryption_choice("false") -> false;
+encryption_choice(true) -> true;
+encryption_choice(false) -> false;
+encryption_choice(_) ->
+    throw(invalid_encrypt_token_choice).
+
+ask_encryption_choice() ->
+    Response = ask("Encrypt token locally? (y/N)", string, <<"n">>),
+    case string:lowercase(unicode:characters_to_list(Response)) of
+        "y" -> true;
+        "yes" -> true;
+        "n" -> false;
+        "no" -> false;
+        _ ->
+            error_message("Please answer yes or no"),
+            ask_encryption_choice()
+    end.
+
+save_config(true, Username, Token) ->
+    success("Please provide a local password to encrypt the token"),
+    LocalPassword = ask_local_password(),
+    EncToken = rebar3_grisp_io_config:encrypt_token(LocalPassword, Token),
+    #{encrypted_token => EncToken, username => Username};
+save_config(false, Username, Token) ->
+    #{token => Token, username => Username}.
+
 ask_local_password() ->
     LocalPassword = ask("Local password", password),
     RepeatedLocalPswd = ask("Confirm your local password", password),
