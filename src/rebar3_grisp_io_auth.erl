@@ -42,18 +42,10 @@ do(RState) ->
     {ok, _} = application:ensure_all_started(rebar3_grisp_io),
     try
         {Args, _} = rebar_state:command_parsed_args(RState),
-        EncryptTokenChoice = proplists:get_value(encrypt_token, Args),
-        Username = ask("Username", string),
-        Password = ask("Password", password),
-
-        Token = rebar3_grisp_io_api:auth(RState, Username, Password),
-        EncryptToken = encryption_choice(EncryptTokenChoice),
-        Config = save_config(EncryptToken, Username, Token),
-
-        rebar3_grisp_io_config:write_config(RState, Config),
-
-        success("Token successfully requested"),
-
+        case proplists:get_value(credentials, Args, false) of
+            true -> auth_credentials(RState, Args);
+            false -> auth_pkce()
+        end,
         {ok, RState}
     catch
         throw:wrong_credentials ->
@@ -75,9 +67,23 @@ format_error(Reason) ->
 
 %--- Internals -----------------------------------------------------------------
 options() -> [
+    {credentials, undefined, "credentials", {boolean, false},
+     "Authenticate with username and password instead of PKCE"},
     {encrypt_token, undefined, "encrypt-token", string,
      "Encrypt the saved token (true or false); omit to choose interactively"}
 ].
+
+auth_credentials(RState, Args) ->
+    Username = ask("Username", string),
+    Password = ask("Password", password),
+    Token = rebar3_grisp_io_api:auth(RState, Username, Password),
+    EncryptToken = encryption_choice(proplists:get_value(encrypt_token, Args)),
+    Config = save_config(EncryptToken, Username, Token),
+    rebar3_grisp_io_config:write_config(RState, Config),
+    success("Token successfully requested").
+
+auth_pkce() ->
+    console("PKCE login flow is not implemented yet").
 
 encryption_choice(undefined) ->
     ask_encryption_choice();

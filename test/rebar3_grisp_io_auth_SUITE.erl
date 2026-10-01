@@ -64,7 +64,7 @@ run_auth(Config) ->
     RState = ?config(rebar_state, Config),
     ProviderOutput = rebar3_grisp_io_test_utils:run_grisp_io_command(RState,
                                                                      ?AUTH_PROV,
-                                                                     []),
+                                                                     ["--credentials"]),
     ?assertMatch({ok, _}, ProviderOutput),
     {ok, RState2} = ProviderOutput,
     GIOConfig = rebar3_grisp_io_config:read_config(RState2),
@@ -93,7 +93,8 @@ run_auth(Config) ->
 run_auth_unencrypted(Config) ->
     RState = ?config(rebar_state, Config),
     ProviderOutput = rebar3_grisp_io_test_utils:run_grisp_io_command(
-                       RState, ?AUTH_PROV, ["--encrypt-token=false"]),
+                       RState, ?AUTH_PROV,
+                       ["--credentials", "--encrypt-token=false"]),
     ?assertMatch({ok, _}, ProviderOutput),
     {ok, RState2} = ProviderOutput,
     GIOConfig = rebar3_grisp_io_config:read_config(RState2),
