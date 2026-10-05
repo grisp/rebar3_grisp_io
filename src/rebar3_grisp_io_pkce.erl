@@ -57,7 +57,66 @@ receive_code(Listen, Nonce, AuthUrl, Deadline) ->
     rebar3_grisp_io_io:console("Opening browser: ~s", [AuthUrl]),
     open_browser(AuthUrl),
     log("Waiting for approval"),
-    accept_callback(Listen, Nonce, Deadline).
+    wait_for_code(Listen, Nonce, Deadline, start_code_prompt()).
+
+start_code_prompt() ->
+    Parent = self(),
+    Prompt = "Paste the authentication code if prompted: ",
+    spawn_monitor(fun() -> Parent ! {cli_code_input, self(), io:get_line(Prompt)} end).
+
+wait_for_code(Listen, Nonce, Deadline, Prompt) ->
+    Timeout = min(1000, remaining(Deadline)),
+    case gen_tcp:accept(Listen, Timeout) of
+        {ok, Socket} ->
+            Result = try
+                callback(Socket, Nonce, Deadline)
+            catch
+                error:_ ->
+                    reply(Socket, 400, <<"Invalid login callback.">>),
+                    retry
+            after
+                gen_tcp:close(Socket)
+            end,
+            case Result of
+                {ok, Code} ->
+                    stop_code_prompt(Prompt),
+                    Code;
+                retry -> wait_for_code(Listen, Nonce, Deadline, Prompt)
+            end;
+        {error, timeout} ->
+            case read_code_prompt(Prompt) of
+                {ok, Code} ->
+                    stop_code_prompt(Prompt),
+                    Code;
+                {empty, NewPrompt} ->
+                    wait_for_code(Listen, Nonce, Deadline, NewPrompt);
+                {pending, NewPrompt} ->
+                    wait_for_code(Listen, Nonce, Deadline, NewPrompt);
+                unavailable ->
+                    wait_for_code(Listen, Nonce, Deadline, unavailable)
+            end;
+        {error, Reason} -> throw({cli_listener_failed, Reason})
+    end.
+
+read_code_prompt({Pid, Ref}) ->
+    receive
+        {cli_code_input, Pid, Line} when is_list(Line) ->
+            Code = string:trim(Line),
+            case Code of
+                [] -> {empty, start_code_prompt()};
+                _ -> {ok, unicode:characters_to_binary(Code)}
+            end;
+        {cli_code_input, Pid, _EofOrError} -> unavailable;
+        {'DOWN', Ref, process, Pid, _Reason} -> unavailable
+    after 0 -> {pending, {Pid, Ref}}
+    end;
+read_code_prompt(unavailable) -> unavailable.
+
+stop_code_prompt({Pid, Ref}) ->
+    exit(Pid, kill),
+    receive {'DOWN', Ref, process, Pid, _} -> ok end,
+    receive {cli_code_input, Pid, _} -> ok after 0 -> ok end;
+stop_code_prompt(unavailable) -> ok.
 
 close_listener(Listen) ->
     try
@@ -102,26 +161,6 @@ browser_result(Browser, Deadline) ->
         {Browser, {data, _}} -> browser_result(Browser, Deadline)
     after remaining(Deadline) ->
         throw({cli_browser_failed, timeout})
-    end.
-
-accept_callback(Listen, Nonce, Deadline) ->
-    case gen_tcp:accept(Listen, remaining(Deadline)) of
-        {ok, Socket} ->
-            Result = try
-                callback(Socket, Nonce, Deadline)
-            catch
-                error:_ ->
-                    reply(Socket, 400, <<"Invalid login callback.">>),
-                    retry
-            after
-                gen_tcp:close(Socket)
-            end,
-            case Result of
-                {ok, Code} -> Code;
-                retry -> accept_callback(Listen, Nonce, Deadline)
-            end;
-        {error, timeout} -> throw(cli_login_timeout);
-        {error, Reason} -> throw({cli_listener_failed, Reason})
     end.
 
 callback(Socket, Nonce, Deadline) ->

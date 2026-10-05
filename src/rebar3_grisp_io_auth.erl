@@ -109,7 +109,7 @@ encryption_choice(_) ->
     throw(invalid_encrypt_token_choice).
 
 ask_encryption_choice() ->
-    Response = ask("Encrypt token locally? (y/N)", string, <<"n">>),
+    Response = ask("Do you want to protect your token with a passphrase? (y/N)", string, <<"n">>),
     case string:lowercase(unicode:characters_to_list(Response)) of
         "y" -> true;
         "yes" -> true;

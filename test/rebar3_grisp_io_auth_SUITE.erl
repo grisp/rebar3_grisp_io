@@ -119,7 +119,7 @@ fake_ask("Username", _, Username, _, _) ->
     Username;
 fake_ask("Password", _, _, Password, _) ->
     Password;
-fake_ask("Encrypt token locally? (y/N)", _, _, _, _) ->
+fake_ask("Do you want to protect your token with a passphrase? (y/N)", _, _, _, _) ->
     "yes";
 fake_ask(Prompt, _, _, _, LocalPassword) when
       Prompt =:= "Local password" orelse
