@@ -62,7 +62,10 @@ receive_code(Listen, Nonce, AuthUrl, Deadline) ->
 start_code_prompt() ->
     Parent = self(),
     Prompt = "Paste the authentication code if prompted: ",
-    spawn_monitor(fun() -> Parent ! {cli_code_input, self(), io:get_line(Prompt)} end).
+    spawn_monitor(fun() ->
+        Line = rebar3_grisp_io_io:read_line(Prompt),
+        Parent ! {cli_code_input, self(), Line}
+    end).
 
 wait_for_code(Listen, Nonce, Deadline, Prompt) ->
     Timeout = min(1000, remaining(Deadline)),

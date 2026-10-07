@@ -4,6 +4,7 @@
 -export([abort/1, abort/2]).
 -export([ask/2, ask/3]).
 -export([console/1, console/2]).
+-export([read_line/1]).
 -export([error_message/1, error_message/2]).
 -export([spinner_start/0, spinner_stop/2]).
 -export([success/1, success/2]).
@@ -38,6 +39,10 @@ console(Msg) ->
     console(Msg, []).
 console(Msg, Args) ->
     rebar_api:console(Msg, Args).
+
+-spec read_line(string()) -> unicode:chardata() | eof | {error, term()}.
+read_line(Prompt) ->
+    io:get_line(Prompt).
 
 error_message(Msg) ->
     error_message(Msg, []).

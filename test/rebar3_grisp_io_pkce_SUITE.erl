@@ -24,6 +24,8 @@ init_per_testcase(_, Config) ->
     ok = meck:new(rebar3_grisp_io_io, [no_link]),
     ok = meck:expect(rebar3_grisp_io_io, console, 1, fun(_) -> ok end),
     ok = meck:expect(rebar3_grisp_io_io, console, 2, fun(_, _) -> ok end),
+    %% Browser callbacks must not read from Common Test's terminal.
+    ok = meck:expect(rebar3_grisp_io_io, read_line, 1, eof),
     [{old_path, OldPath}, {old_url, OldUrl} | Config].
 
 end_per_testcase(_, Config) ->
@@ -72,6 +74,9 @@ browser_login(Config) ->
     ?assertEqual({ok, AuthUrl}, file:read_file(
                                  filename:join(proplists:get_value(priv_dir, Config),
                                                "browser-url"))),
+    ?assert(meck:called(rebar3_grisp_io_io, read_line,
+                        ["Paste the authentication code if prompted: "])),
+    ?assert(meck:validate(rebar3_grisp_io_io)),
     ?assert(meck:validate(hackney)).
 
 request_callback(Port, Method, Payload, Status) ->
