@@ -2,8 +2,9 @@
 
 % API
 -export([abort/1, abort/2]).
--export([ask/2]).
+-export([ask/2, ask/3]).
 -export([console/1, console/2]).
+-export([read_line/1]).
 -export([error_message/1, error_message/2]).
 -export([spinner_start/0, spinner_stop/2]).
 -export([success/1, success/2]).
@@ -20,10 +21,16 @@ abort(Msg, Args) ->
     rebar_api:abort(color(196, Msg), Args).
 
 ask(Prompt, Type) ->
+    ask(Prompt, Type, undefined).
+
+ask(Prompt, Type, Default) ->
     UserInput = do_ask(Prompt, Type),
     case get(Type, UserInput) of
+        {error, no_data} when Default =/= undefined ->
+            Default;
         {error, Reason} ->
-            error_message("Error wrong input. Reason: ~s", [Reason]);
+            error_message("Error wrong input. Reason: ~p", [Reason]),
+            ask(Prompt, Type, Default);
         {ok, Value} ->
             Value
     end.
@@ -32,6 +39,10 @@ console(Msg) ->
     console(Msg, []).
 console(Msg, Args) ->
     rebar_api:console(Msg, Args).
+
+-spec read_line(string()) -> unicode:chardata() | eof | {error, term()}.
+read_line(Prompt) ->
+    io:get_line(Prompt).
 
 error_message(Msg) ->
     error_message(Msg, []).

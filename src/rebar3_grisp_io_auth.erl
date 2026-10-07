@@ -12,8 +12,10 @@
     abort/1,
     abort/2,
     ask/2,
+    ask/3,
     console/1,
     console/2,
+    error_message/1,
     success/1,
     success/2]).
 
@@ -27,7 +29,7 @@ init(State) ->
         {module, ?MODULE},
         {bare, true},
         {example, "rebar3 grisp_io auth"},
-        {opts, []},
+        {opts, options()},
         {profile, [default]},
         {short_desc, "Authenticate yourself to grisp.io"},
         {desc, "Authenticate yourself to your grisp.io account"}
@@ -39,21 +41,11 @@ init(State) ->
 do(RState) ->
     {ok, _} = application:ensure_all_started(rebar3_grisp_io),
     try
-        Username = ask("Username", string),
-        Password = ask("Password", password),
-
-        Token = rebar3_grisp_io_api:auth(RState, Username, Password),
-        success("Authentication successful - " ++
-                "Please provide new local password"),
-        LocalPassword = ask_local_password(),
-        EncToken = rebar3_grisp_io_config:encrypt_token(LocalPassword, Token),
-        Config = #{encrypted_token => EncToken,
-                   username => Username},
-
-        rebar3_grisp_io_config:write_config(RState, Config),
-
-        success("Token successfully requested"),
-
+        {Args, _} = rebar_state:command_parsed_args(RState),
+        case proplists:get_value(credentials, Args, false) of
+            true -> auth_credentials(RState, Args);
+            false -> auth_pkce(RState, Args)
+        end,
         {ok, RState}
     catch
         throw:wrong_credentials ->
@@ -64,7 +56,19 @@ do(RState) ->
         throw:forbidden ->
             abort("Error: No permission to perform this operation");
         throw:not_matching ->
-            abort("Error: The 2 local password entries don't match")
+            abort("Error: The 2 local password entries don't match");
+        throw:invalid_encrypt_token_choice ->
+            abort("Error: --encrypt-token must be true or false");
+        throw:cli_login_timeout ->
+            abort("Error: CLI login expired. Run auth again");
+        throw:{cli_listener_failed, Reason} ->
+            abort("Error: Cannot start the local login listener: ~p", [Reason]);
+        throw:{cli_browser_failed, Reason} ->
+            abort("Error: Cannot open the browser: ~p", [Reason]);
+        throw:{cli_api_error, Status, Body} ->
+            abort("Error: CLI login API returned HTTP ~B: ~s", [Status, Body]);
+        throw:{cli_request_failed, Reason} ->
+            abort("Error: CLI login request failed: ~p", [Reason])
     end.
 
 -spec format_error(any()) ->  iolist().
@@ -72,6 +76,58 @@ format_error(Reason) ->
     io_lib:format("~p", [Reason]).
 
 %--- Internals -----------------------------------------------------------------
+options() -> [
+    {credentials, undefined, "credentials", {boolean, false},
+     "Authenticate with username and password instead of PKCE"},
+    {encrypt_token, undefined, "encrypt-token", string,
+     "Encrypt the saved token (true or false); omit to choose interactively"}
+].
+
+auth_credentials(RState, Args) ->
+    Username = ask("Username", string),
+    Password = ask("Password", password),
+    Token = rebar3_grisp_io_api:auth(RState, Username, Password),
+    store_token(RState, Args, Token, #{username => Username}).
+
+auth_pkce(RState, Args) ->
+    Token = rebar3_grisp_io_pkce:auth(RState),
+    store_token(RState, Args, Token, #{}).
+
+store_token(RState, Args, Token, Metadata) ->
+    EncryptToken = encryption_choice(proplists:get_value(encrypt_token, Args)),
+    Config = maps:merge(save_config(EncryptToken, Token), Metadata),
+    rebar3_grisp_io_config:write_config(RState, Config),
+    success("Token successfully requested").
+
+encryption_choice(undefined) ->
+    ask_encryption_choice();
+encryption_choice("true") -> true;
+encryption_choice("false") -> false;
+encryption_choice(true) -> true;
+encryption_choice(false) -> false;
+encryption_choice(_) ->
+    throw(invalid_encrypt_token_choice).
+
+ask_encryption_choice() ->
+    Response = ask("Do you want to protect your token with a passphrase? (y/N)", string, <<"n">>),
+    case string:lowercase(unicode:characters_to_list(Response)) of
+        "y" -> true;
+        "yes" -> true;
+        "n" -> false;
+        "no" -> false;
+        _ ->
+            error_message("Please answer yes or no"),
+            ask_encryption_choice()
+    end.
+
+save_config(true, Token) ->
+    success("Please provide a local password to encrypt the token"),
+    LocalPassword = ask_local_password(),
+    EncToken = rebar3_grisp_io_config:encrypt_token(LocalPassword, Token),
+    #{encrypted_token => EncToken};
+save_config(false, Token) ->
+    #{token => Token}.
+
 ask_local_password() ->
     LocalPassword = ask("Local password", password),
     RepeatedLocalPswd = ask("Confirm your local password", password),

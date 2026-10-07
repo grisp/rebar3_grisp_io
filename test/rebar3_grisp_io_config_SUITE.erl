@@ -10,6 +10,7 @@
 % testcases
 -export([read_write_config_test/1]).
 -export([encrypt_decrypt_token/1]).
+-export([read_plaintext_token/1]).
 
 %--- Include -------------------------------------------------------------------
 
@@ -20,7 +21,8 @@
 
 all() -> [
     read_write_config_test,
-    encrypt_decrypt_token
+    encrypt_decrypt_token,
+    read_plaintext_token
 ].
 
 init_per_suite(Config) ->
@@ -60,3 +62,12 @@ encrypt_decrypt_token(Config) ->
                  rebar3_grisp_io_config:try_decrypt_token(Password, EncryptedToken)),
     ?assertThrow(wrong_local_password,
                  rebar3_grisp_io_config:try_decrypt_token(BadPassword, EncryptedToken)).
+
+read_plaintext_token(Config) ->
+    Token = ?config(token, Config),
+    RState = ?config(rebar_state, Config),
+    PluginConfig = #{username => <<"Test">>, token => Token},
+    ok = rebar3_grisp_io_config:write_config(RState, PluginConfig),
+    ReadConfig = rebar3_grisp_io_config:read_config(RState),
+    ?assertEqual(PluginConfig, ReadConfig),
+    ?assertEqual(Token, rebar3_grisp_io_config:get_token(ReadConfig)).

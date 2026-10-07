@@ -54,34 +54,57 @@ rebar3 grisp-io version
 ### Authentication
 
 This command allows you to authenticate on `grisp.io` and receive an API token.
+By default, `rebar3 grisp-io auth` opens your OS browser to log in and approve
+CLI access. The CLI creates a five-minute PKCE session, starts an HTTP listener
+on an OS-selected port at `127.0.0.1`, and waits for the browser to return the
+authorization code.
+It verifies the callback nonce, stops the listener, and redeems the code with
+its original PKCE verifier to obtain an API token.
+Use `--credentials` to authenticate with a username and password.
 
-The API token is encrypted and saved locally on your computer using the provided local password.
+You can encrypt the token locally with a password, or save it without
+encryption. If you omit `--encrypt-token`, the command asks which option you
+prefer after authentication succeeds and the API token has been obtained.
+Press Enter to save the token without encryption (the default).
 
 ```shell
-rebar3 grisp-io auth
+rebar3 grisp-io auth --credentials
 ===> Analyzing applications...
 ===> Compiling rebar3_grisp_io
 
 Username > <Username>
 Password > <Password>
-Authentication successful - Please provide new local password
+Encrypt token locally? (y/N) > y
+Please provide a local password to encrypt the token
 Local password > <LocalPassword>
 Confirm your local password > <LocalPassword> % Must be the same
 Token successfully requested
+```
+
+Use `--encrypt-token true` or `--encrypt-token false` to make the choice
+without the prompt. With encryption disabled, the clear API token is saved in
+the local plugin config file and commands do not ask for a local password.
+
+To use another callback port or API host, configure the plugin in `rebar.config`:
+
+```erlang
+{rebar3_grisp_io, [{base_url, <<"https://app.grisp.io">>},
+                   {cacertfile, "path/to/ca.pem"}]}.
 ```
 
 ---
 ### Deauthentication
 
 This command revokes the currently stored API token and removes the local
-encrypted credentials:
+credentials:
 
 ```shell
 rebar3 grisp-io deauth
 ```
 
-Enter the local password used when authenticating. If the stored token has
-already expired or been revoked, the stale local credentials are still removed.
+If the token was encrypted, enter the local password used when authenticating.
+If the token has already expired or been revoked, the stale local credentials
+are still removed.
 
 ---
 ### Deploy

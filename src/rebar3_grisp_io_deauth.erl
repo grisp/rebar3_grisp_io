@@ -8,7 +8,7 @@
 %--- Includes ------------------------------------------------------------------
 
 -include("rebar3_grisp_io.hrl").
--import(rebar3_grisp_io_io, [abort/1, ask/2, success/1]).
+-import(rebar3_grisp_io_io, [abort/1, success/1]).
 
 %--- API -----------------------------------------------------------------------
 
@@ -33,10 +33,7 @@ do(RState) ->
     {ok, _} = application:ensure_all_started(rebar3_grisp_io),
     try
         Config = rebar3_grisp_io_config:read_config(RState),
-        EncryptedToken = maps:get(encrypted_token, Config),
-        Password = ask("Local password", password),
-        Token = rebar3_grisp_io_config:try_decrypt_token(Password,
-                                                        EncryptedToken),
+        Token = rebar3_grisp_io_config:get_token(Config),
         ok = rebar3_grisp_io_api:deauth(RState, Token),
         ok = rebar3_grisp_io_config:delete_config(RState),
         success("Authentication token successfully revoked"),

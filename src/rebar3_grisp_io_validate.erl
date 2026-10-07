@@ -11,7 +11,6 @@
 -import(rebar3_grisp_io_io, [
     abort/1,
     abort/2,
-    ask/2,
     console/1,
     console/2,
     success/1,
@@ -46,10 +45,7 @@ do(RState) ->
         Device = try_get_device_serial(Args),
 
         Config = rebar3_grisp_io_config:read_config(RState),
-        EncryptedToken = maps:get(encrypted_token, Config),
-        Password = ask("Local password", password),
-        Token = rebar3_grisp_io_config:try_decrypt_token(Password,
-                                                        EncryptedToken),
+        Token = rebar3_grisp_io_config:get_token(Config),
 
         rebar3_grisp_io_api:validate_update(RState, Token, Device),
 
