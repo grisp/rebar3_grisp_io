@@ -8,6 +8,29 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-07
+
+### What's Changed
+
+#### Added
+
+- Browser-based authentication using PKCE and a local callback listener, with
+  a pasted authentication code as a fallback [#21](https://github.com/grisp/rebar3_grisp_io/pull/21).
+- An `--encrypt-token` option to choose whether stored API tokens are encrypted.
+
+#### Changed
+
+- Open the browser by default for `auth`; use `--credentials` to log in with
+  a username and password.
+- Ask whether to encrypt the token after authentication succeeds, defaulting
+  to unencrypted storage. Commands only request a local password for encrypted
+  tokens.
+
+#### Fixed
+
+- Prevent browser-login and version tests from disrupting Common Test terminal
+  input and output.
+
 ## [1.0.0] - 2026-09-15
 
 ### What's Changed
@@ -46,6 +69,7 @@ and this project adheres to
   - upload and delete update packages
   - start deployments and validate updates
 
-[Unreleased]: https://github.com/grisp/rebar3_grisp_io/compare/1.0.0...HEAD
+[Unreleased]: https://github.com/grisp/rebar3_grisp_io/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/grisp/rebar3_grisp_io/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/grisp/rebar3_grisp_io/compare/0.1.0...1.0.0
 [0.1.0]: https://github.com/grisp/rebar3_grisp_io/compare/023e51e181ee80491299d3c5fb9f604f4729d35a...0.1.0

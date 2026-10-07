@@ -1,6 +1,6 @@
 {application, rebar3_grisp_io, [
     {description, "Rebar plugin to integrate with grisp.io"},
-    {vsn, "1.0.0"},
+    {vsn, "1.1.0"},
     {registered, []},
     {applications, [
         kernel,
