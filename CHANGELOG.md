@@ -8,6 +8,23 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-26
+
+### What's Changed
+
+#### Changed
+
+- Use the SemVer release tag for the application version.
+
+#### Security
+
+- Upgrade certifi to 2.18.0 to remove compromised emSign root certificates.
+
+#### Fixed
+
+- Upgrade Hackney to 4.9.1, including fixes for pooled HTTP/1.1 connection
+  checkout races that caused package uploads to fail with `invalid_state`.
+
 ## [1.1.0] - 2026-10-07
 
 ### What's Changed
@@ -69,7 +86,8 @@ and this project adheres to
   - upload and delete update packages
   - start deployments and validate updates
 
-[Unreleased]: https://github.com/grisp/rebar3_grisp_io/compare/1.1.0...HEAD
+[Unreleased]: https://github.com/grisp/rebar3_grisp_io/compare/1.1.1...HEAD
+[1.1.1]: https://github.com/grisp/rebar3_grisp_io/compare/1.1.0...1.1.1
 [1.1.0]: https://github.com/grisp/rebar3_grisp_io/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/grisp/rebar3_grisp_io/compare/0.1.0...1.0.0
 [0.1.0]: https://github.com/grisp/rebar3_grisp_io/compare/023e51e181ee80491299d3c5fb9f604f4729d35a...0.1.0
